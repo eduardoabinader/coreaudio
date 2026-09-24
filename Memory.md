@@ -162,3 +162,52 @@ procedure, and result. Assumptions are not facts.
 - Kuaru was rebuilt after the documentation/header closeout. A fresh final
   five-vector capture plus its internal reset repeat passed, and `cmp` matched
   every final raw vector byte-for-byte with the committed goldens.
+
+## 2026-09-24 — P8G chain extraction implemented; closure gates remain
+
+### Specified
+
+- P8G moves only Kuaru's fixed production effects chain. AHIO adoption and P8H
+  metrics/snapshot work remain unauthorized until a later `go`.
+- Kuaru retains synthesis, MIDI, packs, instrument gain/headroom, active-voice
+  policy, headset cap, output-mute request, and its `ProfileCollector` adapter.
+
+### Implemented
+
+- `EffectsChain` now owns the ordered tremolo, growl control, filter, growl
+  post-filter, drive, bell peak, phaser, chorus, reverb, noise, soft limiter,
+  and output-gain stages plus their smoothing, delay, envelope, filter,
+  limiter, crossfade, and deterministic noise state.
+- Production DSP is selected only by an explicit consumer-provided JUCE target.
+  Standalone builds retain the JUCE-free neutral implementation; public headers
+  contain no product or JUCE conditional.
+- Kuaru supplies neutral parameters, explicit source level, noise-enable and
+  output-mute policy, and maps neutral stage callbacks back to
+  `ProfileCollector`. The prior 680-line product DSP implementation was removed.
+- `AudioParamController` no longer has the one-value
+  `SinuAudioParamBehaviorMode` enum. Protocol output remains `Direct`, and the
+  direct resolver now names requested/effective assignments explicitly.
+
+### Diagnosis and decisions
+
+- The first candidate differed in all vectors. No golden was changed. The cause
+  was JUCE reverb initialization order; setting parameters after `prepare`
+  entered JUCE's internal ramp from a different initial dry level.
+- The live-change vectors then diverged at filter automation because the first
+  adapter version dirtied piano voices for core-only parameters. Restoring the
+  previous ownership classification removed that difference.
+- The remaining divergence began exactly at phaser enable. Kuaru had set mix
+  before the final phaser reset; preserving that order restored exact output.
+
+### Verified
+
+- Standalone core configure/build with strict warnings passed; CTest passed 3/3.
+- Kuaru desktop configured and built with its pinned JUCE 8.0.8 supplied through
+  the explicit interface target. Warnings observed were in existing JUCE/product
+  sources, not the strict core target.
+- A fresh P8G capture and its fresh-process reset repeat completed. `cmp` matched
+  all five post-migration float32 vectors byte-for-byte with the reviewed P8F
+  goldens at block sizes 7, 64, 257, and 512.
+- P8G is not marked complete yet: the no-commit workflow prevents an exact
+  Kuaru gitlink until the core commit exists, and controlled stage-budget
+  evidence is still required. No P8H work has started.

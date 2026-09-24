@@ -5,6 +5,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 
 namespace gigante
 {
@@ -95,21 +96,26 @@ struct ProcessingContext
     std::uint64_t firstSamplePosition = 0;
     float sourceLevel = 1.0F;
     bool generatedNoiseEnabled = false;
+    bool outputMuted = false;
 };
 
 struct ProcessReport
 {
     Status status {};
     std::uint64_t nonFiniteSampleCount = 0;
+    std::uint64_t invalidParameterCount = 0;
+    std::uint64_t recoveryCount = 0;
     std::size_t algorithmicLatencySamples = 0;
     bool bypassed = true;
 };
 
+class EffectsChainImplementation;
+
 class EffectsChain final
 {
 public:
-    EffectsChain() noexcept = default;
-    ~EffectsChain() = default;
+    EffectsChain();
+    ~EffectsChain();
 
     EffectsChain(const EffectsChain&) = delete;
     EffectsChain& operator=(const EffectsChain&) = delete;
@@ -117,7 +123,11 @@ public:
     EffectsChain& operator=(EffectsChain&&) = delete;
 
     Status prepare(const PrepareSpecification& requested) noexcept;
+    Status prepare(
+        const PrepareSpecification& requested,
+        const EffectsParameters& initialParameters) noexcept;
     void reset() noexcept;
+    void reset(const EffectsParameters& parameters) noexcept;
     void release() noexcept;
 
     ProcessReport process(
@@ -129,16 +139,29 @@ public:
     LifecycleState lifecycleState() const noexcept;
     const PrepareSpecification& requestedConfiguration() const noexcept;
     const EffectiveConfiguration& effectiveConfiguration() const noexcept;
+    const EffectsParameters& requestedParameters() const noexcept;
+    const EffectsParameters& effectiveParameters() const noexcept;
     std::size_t algorithmicLatencySamples() const noexcept;
     std::uint64_t totalNonFiniteSampleCount() const noexcept;
+    std::uint64_t totalInvalidParameterCount() const noexcept;
+    std::uint64_t totalRecoveryCount() const noexcept;
+    bool effectsAvailable() const noexcept;
 
 private:
     Status status(ErrorCode code) const noexcept;
+    EffectsParameters resolveParameters(
+        const EffectsParameters& requested,
+        std::uint64_t& invalidParameterCount) noexcept;
 
     PrepareSpecification requestedConfigurationValue {};
     EffectiveConfiguration effectiveConfigurationValue {};
+    EffectsParameters requestedParameterValues {};
+    EffectsParameters effectiveParameterValues {};
     LifecycleState currentState = LifecycleState::unprepared;
     std::uint64_t nonFiniteSampleTotal = 0;
+    std::uint64_t invalidParameterTotal = 0;
+    std::uint64_t recoveryTotal = 0;
+    std::unique_ptr<EffectsChainImplementation> implementation;
 };
 
 } // namespace gigante

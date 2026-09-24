@@ -1,49 +1,92 @@
 #include "gigante/EffectsChain.h"
 
+#include "EffectsChainImplementation.h"
+
 #include <cmath>
 
 namespace gigante
 {
 
+EffectsChain::EffectsChain()
+    : implementation(createEffectsChainImplementation())
+{
+}
+
+EffectsChain::~EffectsChain() = default;
+
 Status EffectsChain::prepare(const PrepareSpecification& requested) noexcept
 {
+    return prepare(requested, EffectsParameters {});
+}
+
+Status EffectsChain::prepare(
+    const PrepareSpecification& requested,
+    const EffectsParameters& initialParameters) noexcept
+{
     requestedConfigurationValue = requested;
+    requestedParameterValues = initialParameters;
 
     if (!std::isfinite(requested.sampleRate) || requested.sampleRate <= 0.0)
     {
         release();
         requestedConfigurationValue = requested;
+        requestedParameterValues = initialParameters;
         return status(ErrorCode::invalidSampleRate);
     }
     if (requested.channelCount == 0 || requested.channelCount > 2)
     {
         release();
         requestedConfigurationValue = requested;
+        requestedParameterValues = initialParameters;
         return status(ErrorCode::invalidChannelCount);
     }
     if (requested.maximumBlockSize == 0)
     {
         release();
         requestedConfigurationValue = requested;
+        requestedParameterValues = initialParameters;
         return status(ErrorCode::invalidMaximumBlockSize);
     }
 
     effectiveConfigurationValue.sampleRate = requested.sampleRate;
     effectiveConfigurationValue.channelCount = requested.channelCount;
     effectiveConfigurationValue.maximumBlockSize = requested.maximumBlockSize;
+
+    std::uint64_t invalidParameterCount = 0;
+    effectiveParameterValues = resolveParameters(
+        initialParameters, invalidParameterCount);
+    invalidParameterTotal = invalidParameterCount;
+    recoveryTotal = invalidParameterCount > 0 ? 1 : 0;
+    nonFiniteSampleTotal = 0;
+
+    implementation->prepare(requested, effectiveParameterValues);
     currentState = LifecycleState::prepared;
-    reset();
     return status(ErrorCode::none);
 }
 
 void EffectsChain::reset() noexcept
 {
+    reset(effectiveParameterValues);
+}
+
+void EffectsChain::reset(const EffectsParameters& parameters) noexcept
+{
+    requestedParameterValues = parameters;
+    std::uint64_t ignoredInvalidParameterCount = 0;
+    effectiveParameterValues = resolveParameters(
+        parameters, ignoredInvalidParameterCount);
+    implementation->reset(effectiveParameterValues);
     nonFiniteSampleTotal = 0;
+    invalidParameterTotal = 0;
+    recoveryTotal = 0;
 }
 
 void EffectsChain::release() noexcept
 {
-    reset();
+    implementation->release();
+    nonFiniteSampleTotal = 0;
+    invalidParameterTotal = 0;
+    recoveryTotal = 0;
     effectiveConfigurationValue = {};
     currentState = LifecycleState::unprepared;
 }
@@ -54,8 +97,6 @@ ProcessReport EffectsChain::process(
     const ProcessingContext& context,
     EffectsStageObserver* observer) noexcept
 {
-    static_cast<void>(parameters);
-
     ProcessReport report;
     report.status = status(ErrorCode::none);
     report.algorithmicLatencySamples = algorithmicLatencySamples();
@@ -66,7 +107,7 @@ ProcessReport EffectsChain::process(
         report.status = status(ErrorCode::notPrepared);
         return report;
     }
-    if (context.mode != ProcessingMode::neutralBypass)
+    if (context.mode == ProcessingMode::effects && !implementation->effectsAvailable())
     {
         report.status = status(ErrorCode::effectsNotImplemented);
         return report;
@@ -100,12 +141,18 @@ ProcessReport EffectsChain::process(
         }
     }
 
+    requestedParameterValues = parameters;
+    effectiveParameterValues = resolveParameters(
+        parameters, report.invalidParameterCount);
+    if (report.invalidParameterCount > 0)
+        ++report.recoveryCount;
+
     BlockObservation observation;
     observation.firstSamplePosition = context.firstSamplePosition;
     observation.channelCount = buffer.channelCount;
     observation.sampleCount = buffer.sampleCount;
     observation.algorithmicLatencySamples = algorithmicLatencySamples();
-    observation.bypassed = true;
+    observation.bypassed = report.bypassed;
 
     if (observer != nullptr)
     {
@@ -114,20 +161,42 @@ ProcessReport EffectsChain::process(
         observer->onStageEnd(EffectsStage::input);
     }
 
-    for (std::size_t channel = 0; channel < buffer.channelCount; ++channel)
+    const auto replaceNonFiniteSamples = [&buffer, &report]() noexcept
     {
-        float* const samples = buffer.channels[channel];
-        for (std::size_t sample = 0; sample < buffer.sampleCount; ++sample)
+        std::uint64_t replaced = 0;
+        for (std::size_t channel = 0; channel < buffer.channelCount; ++channel)
         {
-            if (!std::isfinite(samples[sample]))
+            float* const samples = buffer.channels[channel];
+            for (std::size_t sample = 0; sample < buffer.sampleCount; ++sample)
             {
-                samples[sample] = 0.0F;
-                ++report.nonFiniteSampleCount;
+                if (!std::isfinite(samples[sample]))
+                {
+                    samples[sample] = 0.0F;
+                    ++replaced;
+                }
             }
         }
+        report.nonFiniteSampleCount += replaced;
+        if (replaced > 0)
+            ++report.recoveryCount;
+    };
+
+    replaceNonFiniteSamples();
+
+    if (context.mode == ProcessingMode::effects)
+    {
+        implementation->process(
+            buffer,
+            effectiveParameterValues,
+            context,
+            observer,
+            report);
+        replaceNonFiniteSamples();
     }
 
     nonFiniteSampleTotal += report.nonFiniteSampleCount;
+    invalidParameterTotal += report.invalidParameterCount;
+    recoveryTotal += report.recoveryCount;
     observation.nonFiniteSampleCount = report.nonFiniteSampleCount;
 
     if (observer != nullptr)
@@ -155,14 +224,39 @@ const EffectiveConfiguration& EffectsChain::effectiveConfiguration() const noexc
     return effectiveConfigurationValue;
 }
 
+const EffectsParameters& EffectsChain::requestedParameters() const noexcept
+{
+    return requestedParameterValues;
+}
+
+const EffectsParameters& EffectsChain::effectiveParameters() const noexcept
+{
+    return effectiveParameterValues;
+}
+
 std::size_t EffectsChain::algorithmicLatencySamples() const noexcept
 {
-    return 0;
+    return implementation->algorithmicLatencySamples();
 }
 
 std::uint64_t EffectsChain::totalNonFiniteSampleCount() const noexcept
 {
     return nonFiniteSampleTotal;
+}
+
+std::uint64_t EffectsChain::totalInvalidParameterCount() const noexcept
+{
+    return invalidParameterTotal;
+}
+
+std::uint64_t EffectsChain::totalRecoveryCount() const noexcept
+{
+    return recoveryTotal;
+}
+
+bool EffectsChain::effectsAvailable() const noexcept
+{
+    return implementation->effectsAvailable();
 }
 
 Status EffectsChain::status(ErrorCode code) const noexcept
@@ -171,6 +265,69 @@ Status EffectsChain::status(ErrorCode code) const noexcept
     result.code = code;
     result.state = currentState;
     return result;
+}
+
+EffectsParameters EffectsChain::resolveParameters(
+    const EffectsParameters& requested,
+    std::uint64_t& invalidParameterCount) noexcept
+{
+    EffectsParameters resolved = requested;
+    const auto finiteOrPrevious = [&invalidParameterCount](
+        float value,
+        float previous) noexcept
+    {
+        if (std::isfinite(value))
+            return value;
+        ++invalidParameterCount;
+        return previous;
+    };
+
+    resolved.tremoloDepth = finiteOrPrevious(
+        requested.tremoloDepth, effectiveParameterValues.tremoloDepth);
+    resolved.tremoloRateHz = finiteOrPrevious(
+        requested.tremoloRateHz, effectiveParameterValues.tremoloRateHz);
+    resolved.growlAmount = finiteOrPrevious(
+        requested.growlAmount, effectiveParameterValues.growlAmount);
+    resolved.growlAttackMs = finiteOrPrevious(
+        requested.growlAttackMs, effectiveParameterValues.growlAttackMs);
+    resolved.growlReleaseMs = finiteOrPrevious(
+        requested.growlReleaseMs, effectiveParameterValues.growlReleaseMs);
+    resolved.filterFrequencyHz = finiteOrPrevious(
+        requested.filterFrequencyHz, effectiveParameterValues.filterFrequencyHz);
+    resolved.filterResonance = finiteOrPrevious(
+        requested.filterResonance, effectiveParameterValues.filterResonance);
+    resolved.driveAmount = finiteOrPrevious(
+        requested.driveAmount, effectiveParameterValues.driveAmount);
+    resolved.bellCenterHz = finiteOrPrevious(
+        requested.bellCenterHz, effectiveParameterValues.bellCenterHz);
+    resolved.bellMix = finiteOrPrevious(
+        requested.bellMix, effectiveParameterValues.bellMix);
+    resolved.phaserAmount = finiteOrPrevious(
+        requested.phaserAmount, effectiveParameterValues.phaserAmount);
+    resolved.phaserRateHz = finiteOrPrevious(
+        requested.phaserRateHz, effectiveParameterValues.phaserRateHz);
+    resolved.chorusDepth = finiteOrPrevious(
+        requested.chorusDepth, effectiveParameterValues.chorusDepth);
+    resolved.chorusRateHz = finiteOrPrevious(
+        requested.chorusRateHz, effectiveParameterValues.chorusRateHz);
+    resolved.chorusMix = finiteOrPrevious(
+        requested.chorusMix, effectiveParameterValues.chorusMix);
+    resolved.chorusCenterDelayMs = finiteOrPrevious(
+        requested.chorusCenterDelayMs,
+        effectiveParameterValues.chorusCenterDelayMs);
+    resolved.reverbMix = finiteOrPrevious(
+        requested.reverbMix, effectiveParameterValues.reverbMix);
+    resolved.reverbSize = finiteOrPrevious(
+        requested.reverbSize, effectiveParameterValues.reverbSize);
+    resolved.reverbDamping = finiteOrPrevious(
+        requested.reverbDamping, effectiveParameterValues.reverbDamping);
+    resolved.noiseAmount = finiteOrPrevious(
+        requested.noiseAmount, effectiveParameterValues.noiseAmount);
+    resolved.noiseColor = finiteOrPrevious(
+        requested.noiseColor, effectiveParameterValues.noiseColor);
+    resolved.outputGainDb = finiteOrPrevious(
+        requested.outputGainDb, effectiveParameterValues.outputGainDb);
+    return resolved;
 }
 
 } // namespace gigante

@@ -2,10 +2,10 @@
 
 ## Current state
 
-P8F implements the neutral library boundary, lifecycle, bypass, observation
-contract, deterministic invalid-sample recovery, and Kuaru characterization
-harness. The production effects remain in Kuaru until P8G; no production DSP
-has moved yet.
+P8G implements the fixed-order production chain in the neutral library and
+migrates Kuaru through its product-owned parameter, source-level, noise-enable,
+output-safety, and `ProfileCollector` adapters. AHIO has not adopted the core;
+that remains outside this phase.
 
 ## Context and dependency direction
 
@@ -84,10 +84,10 @@ The project uses target-based CMake. Project warnings are strict and scoped to
 project targets. Third-party includes/targets are isolated as external/system
 dependencies without weakening project warnings globally.
 
-JUCE is not vendored. The P8F boundary and tests are JUCE-free. If a later
-production-stage extraction proves JUCE necessary, the consumer must provide
-its exact pinned target through explicit CMake integration; the core never
-downloads or assumes a consumer checkout path.
+JUCE is not vendored. Public headers, the neutral fallback, and standalone
+tests remain JUCE-free. The production implementation is selected only when a
+consumer supplies an explicit CMake interface target for its pinned JUCE;
+the core never downloads JUCE or assumes a consumer checkout path.
 
 Revision identity is generated from explicit build metadata when available and
 has a documented reproducible fallback for exported source archives.
@@ -116,22 +116,24 @@ never acquire hardware or parse product configuration.
 
 ### ADR-001 — Independent neutral core
 
-Status: Accepted; P8F skeleton implemented and verified, consumer pins pending.
+Status: Accepted; P8G Kuaru integration implemented, repository pin awaits the
+two no-commit handoff commits; AHIO adoption remains P8I.
 
 The library is independently versioned and consumed in one direction by Kuaru
 and AHIO at pinned revisions. Product adapters remain with their products.
 
 ### ADR-002 — Preserve before improving
 
-Status: Accepted; P8F pre-extraction goldens verified, parity awaits P8G.
+Status: Accepted; P8G Kuaru output is bit-exact for all five reviewed vectors.
 
 The current Kuaru chain is characterized before extraction. Algorithm changes,
 new defaults, or performance redesign are excluded from migration phases.
 
 ### ADR-003 — No hidden realtime adaptation
 
-Status: Accepted; implemented for the P8F bypass boundary and verified by
-source audit/tests. Production-stage verification awaits P8G.
+Status: Accepted; implemented for bypass and production processing. The only
+whole-block copy is the preallocated bell-filter crossfade scratch already
+present in Kuaru; it adds no latency, allocation, FIFO, or thread hop.
 
 The API operates synchronously on granted callback buffers. Format conversion,
 channel conversion, buffering, copies, or thread changes—if ever required—must
@@ -159,3 +161,14 @@ playback retains its prior system-random path. Two full fresh-process captures
 must agree before a vector is promoted manually. Each block geometry remains
 an independent golden because callback-granular changes can legitimately make
 different block sizes produce different samples.
+
+### ADR-006 — Consumer-supplied JUCE implementation
+
+Status: Accepted and verified in P8G.
+
+`giganteCore` has one public, JUCE-free contract and two build-time
+implementations. Standalone builds use the neutral implementation. A product
+that needs the production chain supplies an existing JUCE interface target via
+`GIGANTE_JUCE_TARGET`; Kuaru supplies its pinned JUCE 8.0.8 headers and links
+the same JUCE module objects it already owned. This is dependency injection at
+the target boundary, not product selection in public headers.
