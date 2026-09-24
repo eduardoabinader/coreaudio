@@ -12,6 +12,8 @@ This repository is the authoritative implementation of AHIO Group N
 those IDs and their P8F/P8G/P8H ordering. P8K/P8I/P8J are AHIO-owned consumer
 phases; the deferred vocoder does not belong to the initial extraction.
 
+P8F is complete. Stop before P8G until the user supplies a new `go`.
+
 ## Phase discipline
 
 - Work on one approved phase at a time and stop for `go` before starting the

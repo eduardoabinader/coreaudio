@@ -1,0 +1,11 @@
+{"type":"initial","sample_rate":48000,"buffer_size":7,"instrument":"Cigar reeds","preset":"bright","attack":0.0,"decay":3.0,"sustain":0.65,"release":0.8,"tremoloDepth":0.0,"tremoloRate":4.5,"filterFrequency":900.0,"filterResonance":0.25,"driveAmount":0.0,"growlAmount":0.0,"growlAttack":5.0,"growlRelease":150.0,"chorusDepth":2.0,"chorusRate":0.35,"chorusMix":0.0,"chorusCenterDelay":15.0,"reverbMix":0.15,"reverbSize":0.55,"reverbDamping":0.6,"noiseAmount":0.0,"noiseColor":1.0,"bellCenter":3000.0,"bellMix":0.0,"phaserAmount":0.0,"phaserRate":0.35,"gainDb":-3.0}
+{"type":"note_on","offset_samples":0,"note":52,"velocity":112}
+{"type":"change","offset_samples":4800,"param":"filterFrequency","value":4200.0}
+{"type":"change","offset_samples":9600,"param":"driveAmount","value":0.32}
+{"type":"change","offset_samples":14400,"param":"growlAmount","value":0.8}
+{"type":"change","offset_samples":19200,"param":"tremoloDepth","value":0.55}
+{"type":"change","offset_samples":24000,"param":"chorusMix","value":0.6}
+{"type":"change","offset_samples":28800,"param":"bellMix","value":0.4}
+{"type":"change","offset_samples":33600,"param":"phaserAmount","value":0.45}
+{"type":"change","offset_samples":38400,"param":"noiseAmount","value":0.12}
+{"type":"note_off","offset_samples":48000,"note":52}

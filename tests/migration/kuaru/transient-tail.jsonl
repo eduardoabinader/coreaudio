@@ -1,0 +1,3 @@
+{"type":"initial","sample_rate":48000,"buffer_size":64,"instrument":"Cigar reeds","preset":"default","attack":0.0,"decay":2.0,"sustain":0.0,"release":0.7,"tremoloDepth":0.0,"filterFrequency":1200.0,"filterResonance":0.2,"driveAmount":0.0,"growlAmount":0.0,"chorusMix":0.0,"reverbMix":0.35,"reverbSize":0.65,"reverbDamping":0.55,"noiseAmount":0.0,"bellMix":0.0,"phaserAmount":0.0,"gainDb":0.0}
+{"type":"note_on","offset_samples":0,"note":48,"velocity":118}
+{"type":"note_off","offset_samples":14400,"note":48}

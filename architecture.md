@@ -2,9 +2,10 @@
 
 ## Current state
 
-This document specifies the intended boundary. At phase G0 there is no library
-target or DSP implementation, so no component below is claimed as implemented
-or verified.
+P8F implements the neutral library boundary, lifecycle, bypass, observation
+contract, deterministic invalid-sample recovery, and Kuaru characterization
+harness. The production effects remain in Kuaru until P8G; no production DSP
+has moved yet.
 
 ## Context and dependency direction
 
@@ -22,12 +23,12 @@ state, smoothing, deterministic recovery, algorithmic-latency reporting, and
 neutral realtime observation. It does not own acquisition, playback, voices,
 MIDI, configuration files, routes, codecs, transports, UI, or persistence.
 
-## Planned target structure
+## Target structure
 
 ```text
 giganteCore              public C++ library
-giganteCoreTestSupport   deterministic fixtures/helpers, test-only
 giganteCoreTests         fast hardware-independent tests
+giganteGoldenVectorTests committed-vector format/finite-data tests
 consumer adapters        remain in Kuaru and AHIO repositories
 ```
 
@@ -37,7 +38,7 @@ the public library's product neutrality.
 
 ## Processing boundary
 
-The planned processor contract has four explicit concepts:
+The implemented processor contract has four explicit concepts:
 
 - requested preparation data: sample rate, channel layout, maximum block size,
   and any explicit limits;
@@ -83,10 +84,10 @@ The project uses target-based CMake. Project warnings are strict and scoped to
 project targets. Third-party includes/targets are isolated as external/system
 dependencies without weakening project warnings globally.
 
-JUCE is not vendored. Phase P1 must decide, from the actual extracted surface,
-whether the core can be JUCE-free. If JUCE remains necessary, the consumer
-provides the exact pinned target through an explicit CMake integration; the
-core never downloads or assumes a consumer checkout path.
+JUCE is not vendored. The P8F boundary and tests are JUCE-free. If a later
+production-stage extraction proves JUCE necessary, the consumer must provide
+its exact pinned target through explicit CMake integration; the core never
+downloads or assumes a consumer checkout path.
 
 Revision identity is generated from explicit build metadata when available and
 has a documented reproducible fallback for exported source archives.
@@ -115,21 +116,22 @@ never acquire hardware or parse product configuration.
 
 ### ADR-001 — Independent neutral core
 
-Status: Accepted, specified; implementation not started.
+Status: Accepted; P8F skeleton implemented and verified, consumer pins pending.
 
 The library is independently versioned and consumed in one direction by Kuaru
 and AHIO at pinned revisions. Product adapters remain with their products.
 
 ### ADR-002 — Preserve before improving
 
-Status: Accepted, specified; verification awaits P2/P3.
+Status: Accepted; P8F pre-extraction goldens verified, parity awaits P8G.
 
 The current Kuaru chain is characterized before extraction. Algorithm changes,
 new defaults, or performance redesign are excluded from migration phases.
 
 ### ADR-003 — No hidden realtime adaptation
 
-Status: Accepted, specified; implementation not started.
+Status: Accepted; implemented for the P8F bypass boundary and verified by
+source audit/tests. Production-stage verification awaits P8G.
 
 The API operates synchronously on granted callback buffers. Format conversion,
 channel conversion, buffering, copies, or thread changes—if ever required—must
@@ -144,3 +146,16 @@ repository/check-out identifier is `gigantelabscore`, as explicitly directed.
 AHIO's existing `gigante-labs-audio-core` label denotes this same intended core,
 not a second project or fork. Consumer wording is reconciled only in a later
 approved consumer phase; G0 does not authorize editing AHIO or Kuaru.
+
+### ADR-005 — Raw float goldens and explicit render seed
+
+Status: Accepted and verified in P8F.
+
+Kuaru's 24-bit WAV writer applies dither, so a container hash is not an engine
+bit-equivalence gate. The migration authority is interleaved float32-LE PCM
+captured immediately after `processBlock`. Reference rendering opts into a
+per-voice deterministic detune sequence with seed `1592594996`; normal product
+playback retains its prior system-random path. Two full fresh-process captures
+must agree before a vector is promoted manually. Each block geometry remains
+an independent golden because callback-granular changes can legitimately make
+different block sizes produce different samples.

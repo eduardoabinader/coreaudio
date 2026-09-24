@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "origin": "Kuaru shipped C++ offline renderer before Group N extraction",
+  "corePhase": "P8F",
+  "channels": 2,
+  "sampleRate": 48000,
+  "randomSeed": 1592594996,
+  "automaticGoldenUpdate": false,
+  "vectors": [
+    {
+      "id": "transientTailBlock64",
+      "fixture": "transient-tail.jsonl",
+      "blockSize": 64,
+      "comparison": "bit-exact on the same build/toolchain; tolerance across approved toolchain changes",
+      "tolerance": "decision required before promotion"
+    },
+    {
+      "id": "transientTailBlock257",
+      "fixture": "transient-tail.jsonl",
+      "blockSize": 257,
+      "comparison": "independent golden; no cross-block-size equality claim",
+      "tolerance": "decision required before promotion"
+    },
+    {
+      "id": "liveChangesBlock7",
+      "fixture": "live-changes.jsonl",
+      "blockSize": 7,
+      "comparison": "bit-exact on the same build/toolchain; tolerance across approved toolchain changes",
+      "tolerance": "decision required before promotion"
+    },
+    {
+      "id": "liveChangesBlock512",
+      "fixture": "live-changes.jsonl",
+      "blockSize": 512,
+      "comparison": "independent golden; control changes are callback-granular",
+      "tolerance": "decision required before promotion"
+    },
+    {
+      "id": "invalidParameterRecovery",
+      "fixture": "invalid-parameter-recovery.jsonl",
+      "blockSize": 64,
+      "comparison": "finite-output and deterministic-hash gate",
+      "tolerance": "zero non-finite output samples"
+    }
+  ]
+}

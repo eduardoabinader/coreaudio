@@ -94,3 +94,71 @@ procedure, and result. Assumptions are not facts.
 - This was a source/document/history audit. It verifies the provenance and
   scope mapping of the G0 documentation only; it verifies no DSP behavior,
   realtime property, build, or consumer integration.
+
+## 2026-09-24 — P8F core skeleton and Kuaru characterization completed
+
+### Specified
+
+- P8F is limited to the independent build/API/test skeleton and deterministic
+  pre-extraction Kuaru references. It moves no production effect.
+- The initial processor supports explicit mono/stereo non-owning PCM views,
+  requested/effective preparation state, repeatable lifecycle, neutral bypass,
+  zero algorithmic latency, bounded observer calls, and deterministic counted
+  replacement of non-finite PCM with zero.
+- Requesting the future effects mode before P8G returns the specific terminal
+  result `effectsNotImplemented`; it never silently falls back to bypass.
+
+### Implemented
+
+- Target-based CMake defines the C++17 static target `giganteCore` and alias
+  `gigante::core`, separate test executables, scoped strict warnings with
+  warnings-as-errors, and explicit `GIGANTE_REVISION` build identity.
+- Public headers are product-neutral, JUCE-free, and use only namespace
+  `gigante`. The implementation has no FIFO, thread, lock, allocation, I/O,
+  logging, formatting, product conditional, or whole-buffer copy in `process`.
+- Kuaru's offline renderer gained an opt-in raw float32-LE output and an
+  explicit per-voice deterministic detune seed. Ordinary playback still uses
+  the previous system-random detune path. The seed is stored per voice; no
+  global random state was added.
+- The capture script requires explicit absolute Kuaru binary/config/sample
+  paths, refuses to overwrite an existing candidate manifest, launches a new
+  process per vector, and writes only to the caller's candidate directory.
+- Five reviewed float32 goldens cover transient/tail at blocks 64 and 257,
+  sustained/live changes at blocks 7 and 512, and oversized-parameter recovery
+  at block 64. Seed `1592594996`, rate 48000 Hz, stereo layout, fixture hashes,
+  sizes, origin, comparison policy, and expected hashes are recorded.
+
+### Diagnosis and decisions
+
+- The first WAV-hash experiment differed by one 24-bit output LSB because the
+  JUCE writer dithers float-to-integer conversion. WAV remains auditionable,
+  but raw PCM immediately after `processBlock` is the bit-exact authority.
+- The first raw-float repeat also differed materially. The cause was Kuaru's
+  note-on detune using `juce::Random::getSystemRandom()`. This was not hidden by
+  a tolerance: a test-only explicit seed seam was added and normal playback was
+  left unchanged.
+- Different block sizes are independent goldens, not expected to hash equally,
+  because product parameter changes are callback-granular. Same fixture,
+  geometry, seed, binary, and toolchain are required to be bit-exact.
+- Promotion was manual after two full fresh-process captures matched for all
+  five vectors. Capture has no path that updates committed goldens.
+
+### Verified
+
+- The Kuaru desktop target built successfully with GCC 16.2.1. Warnings shown
+  during that product build came from JUCE/generated or existing product code;
+  the independent core applies `-Werror` only to its own targets.
+- Two complete seeded captures produced identical SHA-256 values for every
+  vector. An additional same-run fresh-process reset repeat also matched
+  `transientTailBlock64` bit-for-bit.
+- FFmpeg `astats` inspected the invalid-recovery raw vector: 108000 frames per
+  channel, 0 NaNs, 0 infinities, and 0 denormals.
+- The committed hashes are verified by `giganteGoldenHashVerification`; format,
+  exact size, and finite samples are verified by `giganteGoldenVectorTests`.
+- Final core configure/build with `GIGANTE_WARNINGS_AS_ERRORS=ON` and revision
+  `p8f-working-tree` passed under GCC 16.2.1. CTest passed 3/3:
+  `giganteCoreTests`, `giganteGoldenVectorTests`, and
+  `giganteGoldenHashVerification` (0.07 s total on the final run).
+- Kuaru was rebuilt after the documentation/header closeout. A fresh final
+  five-vector capture plus its internal reset repeat passed, and `cmp` matched
+  every final raw vector byte-for-byte with the committed goldens.

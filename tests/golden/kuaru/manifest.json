@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "status": "reviewed-golden",
+  "promotedOn": "2026-09-24",
+  "format": "interleaved IEEE-754 float32 little-endian PCM",
+  "sampleRate": 48000,
+  "channels": 2,
+  "seed": 1592594996,
+  "origin": "Kuaru build baac25d-deec79205 before Group N production-DSP extraction",
+  "automaticGoldenUpdate": false,
+  "decision": "Use raw float output as the authoritative same-build bit-exact baseline; retain each block size as an independent vector.",
+  "vectors": [
+    {
+      "id": "transientTailBlock64",
+      "fixture": "transient-tail.jsonl",
+      "fixtureSha256": "d1be706331422c5c6160a966c1c53fec9f5cd6b7b612b128d7f653ef86e9c6e6",
+      "blockSize": 64,
+      "frames": 110400,
+      "bytes": 883200,
+      "comparison": "bit-exact on the pinned build and toolchain",
+      "sha256": "f7d62e660530749d28cbe737d8af9afc2eb802dae84de5072fddd15ecde9aaf5"
+    },
+    {
+      "id": "transientTailBlock257",
+      "fixture": "transient-tail.jsonl",
+      "fixtureSha256": "d1be706331422c5c6160a966c1c53fec9f5cd6b7b612b128d7f653ef86e9c6e6",
+      "blockSize": 257,
+      "frames": 110400,
+      "bytes": 883200,
+      "comparison": "independent bit-exact golden; no cross-block-size equality claim",
+      "sha256": "09d7a013529c62ca4568d126291b619244a06810d5f351c92b8fa2205affba15"
+    },
+    {
+      "id": "liveChangesBlock7",
+      "fixture": "live-changes.jsonl",
+      "fixtureSha256": "7afa5a42273ce7d73dbc99cd0970324e42ac61187bdb6384f6d181f74aae4b44",
+      "blockSize": 7,
+      "frames": 144000,
+      "bytes": 1152000,
+      "comparison": "bit-exact on the pinned build and toolchain",
+      "sha256": "348078cfd070e4ebe18c5b721e16da9b1c542169cdb3ccc2a17d101b8c16a891"
+    },
+    {
+      "id": "liveChangesBlock512",
+      "fixture": "live-changes.jsonl",
+      "fixtureSha256": "7afa5a42273ce7d73dbc99cd0970324e42ac61187bdb6384f6d181f74aae4b44",
+      "blockSize": 512,
+      "frames": 144000,
+      "bytes": 1152000,
+      "comparison": "independent bit-exact golden; control changes are callback-granular",
+      "sha256": "becefdb0d00004a0523630dab0f0ae7a90b65cfa7e3697f558013c2da9a39bf9"
+    },
+    {
+      "id": "invalidParameterRecovery",
+      "fixture": "invalid-parameter-recovery.jsonl",
+      "fixtureSha256": "e89d9aabec4ffc8c22c01f1d8e54aa7559dd9dc5883a69c5e2b5b125d5c82ad6",
+      "blockSize": 64,
+      "frames": 108000,
+      "bytes": 864000,
+      "comparison": "bit-exact plus zero non-finite samples",
+      "sha256": "1e6339b212abbf9e66923cdaf429d2aaca94321f9ce1565600e1cb9bf1a2ff99"
+    }
+  ]
+}
