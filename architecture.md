@@ -1,4 +1,4 @@
-# Gigante Labs Core Architecture
+# Core Audio Architecture
 
 ## Current state
 
@@ -145,10 +145,8 @@ be separate, explicit, measured components rather than processor internals.
 Status: Accepted.
 
 This repository implements AHIO Group N under its stable requirement IDs. The
-repository/check-out identifier is `gigantelabscore`, as explicitly directed.
-AHIO's existing `gigante-labs-audio-core` label denotes this same intended core,
-not a second project or fork. Consumer wording is reconciled only in a later
-approved consumer phase; G0 does not authorize editing AHIO or Kuaru.
+canonical repository/check-out identifier is `coreaudio`. Earlier planning and
+bootstrap labels denote this same project, not a second implementation or fork.
 
 ### ADR-005 — Raw float goldens and explicit render seed
 

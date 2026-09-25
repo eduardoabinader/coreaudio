@@ -1,4 +1,4 @@
-# Gigante Labs Core Memory
+# Core Audio Memory
 
 This file records durable decisions and reproducible verification results.
 Requirements belong in `requirements.md`; intended design belongs in
@@ -10,7 +10,7 @@ procedure, and result. Assumptions are not facts.
 ### Specified
 
 - The repository is an independent C++ audio core at the local checkout
-  `modules/gigantelabscore`.
+  `modules/coreaudio`.
 - This repository is the authoritative implementation location for AHIO Group
   N. Its stable IDs `REQ-N01` through `REQ-N45` are preserved locally.
 - Public namespace and naming, one-way product dependencies, deterministic
@@ -48,9 +48,9 @@ procedure, and result. Assumptions are not facts.
 
 ### Durable decisions
 
-- The checkout/repository identifier is `gigantelabscore`. The older AHIO
-  planning label `gigante-labs-audio-core` refers to the same intended core and
-  is not a second library or fork.
+- The checkout/repository identifier is `coreaudio`. Earlier planning and
+  bootstrap labels refer to the same intended core and are not another library
+  or fork.
 - Consumer documentation is reference material, not automatically copied
   policy. Core requirements contain only neutral rules needed by this library.
 - Migration order is characterization, Kuaru-only extraction/parity,
@@ -225,6 +225,17 @@ procedure, and result. Assumptions are not facts.
   device, xrun, or disabled-profiler overhead; those remain P8H/product
   evidence. Raw timing rows are retained at
   `/tmp/p8g-benchmark-final-20260924.tsv` for this handoff.
-- P8G is not marked complete yet because Kuaru still lacks an exact core
-  gitlink and the core has no authoritative remote configured. No P8H work has
+- On 2026-09-25 the authoritative repository was named `coreaudio` and
+  integrated into Kuaru at `modules/coreaudio`. The local Kuaru gitlink pins
+  commit `3699b89bbe4c9efdf06a4fa56b55935b65d7faf9`; repository naming in core,
+  Kuaru, and AHIO documentation was reconciled in the same closeout work.
+- Remote verification found `origin/main` at the unrelated root commit
+  `be786ec` (`Initial commit`, containing only `.gitignore`). The pinned
+  `3699b89` history is not reachable from that remote ref, so a fresh clone
+  cannot yet materialize the gitlink. No force-push, history rewrite, merge, or
+  remote branch creation was performed implicitly.
+- Kuaru now derives `GIGANTE_REVISION` from this checkout and adds a stable
+  dirty-source digest when applicable; it no longer misidentifies the core with
+  the Kuaru product revision.
+- P8G still awaits remote reachability of its pinned commit. No P8H work has
   started.

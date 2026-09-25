@@ -1,12 +1,12 @@
-# Gigante Labs Core Requirements
+# Core Audio Requirements
 
 ## Authority and status model
 
 This repository is the authoritative implementation of AHIO Group N. The
 stable IDs `REQ-N01` through `REQ-N45` are retained so Kuaru, AHIO, phases, and
 tests refer to one contract. The wording below is self-contained and adapted
-only where the user explicitly selected the repository name/path
-`gigantelabscore`; it does not import AHIO transport or Kuaru product policy.
+only where the user explicitly selected the repository name/path `coreaudio`;
+it does not import AHIO transport or Kuaru product policy.
 
 Each requirement tracks three independent states:
 
@@ -21,8 +21,8 @@ A build can support **Implemented**, but cannot by itself establish
 
 | ID | Requirement | Specified | Implemented | Verified | Phase / evidence |
 |---|---|---:|---:|---:|---|
-| REQ-N01 | Shared realtime audio lives in the independent `gigantelabscore` repository and contains cohesive audio processing, realtime observation, and deterministic test support—not general product utilities. | Yes | Yes | Yes | P8G core chain plus standalone/core and Kuaru golden verification |
-| REQ-N02 | Kuaru and AHIO consume an exact pinned revision of the same authoritative core; copies, translations, and product forks are prohibited. | Yes | No | No | P8G Kuaru pin; P8I AHIO pin |
+| REQ-N01 | Shared realtime audio lives in the independent `coreaudio` repository and contains cohesive audio processing, realtime observation, and deterministic test support—not general product utilities. | Yes | Yes | Yes | P8G core chain plus standalone/core and Kuaru golden verification |
+| REQ-N02 | Kuaru and AHIO consume an exact pinned revision of the same authoritative core; copies, translations, and product forks are prohibited. | Yes | Partial | No | P8G local Kuaru gitlink pins `3699b89`, but the remote does not yet advertise it; P8I AHIO pin remains |
 | REQ-N03 | Public C++ uses the single namespace `gigante`; common types name their responsibility without repeating the owner name. | Yes | Yes | Yes | P8F public-header isolation build and review |
 | REQ-N04 | Controlled types use `UpperCamelCase`; functions, variables, members, and constants use `lowerCamelCase`; no controlled symbol begins with `_` or gains snake-case aliases. Externally imposed ABI names stay in adapters. | Yes | Yes | Yes | P8F naming review, strict build |
 | REQ-N05 | No new module, class, target, configuration, or controlled symbol uses `Sinu`. Shared names use neutral ownership; piano-only names remain Kuaru-owned and AHIO-only names remain Ahio-owned. Existing names migrate by ownership in reviewable phases. | Yes | Partial | Partial | P8F core audit passed; consumer migration remains P8G |
@@ -111,7 +111,7 @@ contract.
 |---|---|---|---|---|
 | G0 | Establish the core repository as Group N authority and import its governance/architecture context | N01–N45; GOV-01–04 | Required documents, source audit, consistency checks, `git diff --check` | Complete 2026-09-24 |
 | P8F | Build skeleton plus deterministic Kuaru characterization; no production DSP moves | N01–N08, N21–N23, N26, N31, N33; GOV-01–07 | Configure/build/CTest, header isolation, dependency decision, fixture schema, reviewed pre-migration vectors | Complete 2026-09-24 |
-| P8G | Extract fixed-order chain and migrate Kuaru alone | N09–N11, N15, N17–N25, N32–N33; GOV-01–07 | Bit-exact/tolerance parity, lifecycle/realtime suite, stage-budget comparison | Implemented; five-vector bit parity and controlled render budget verified; exact consumer gitlink remains before complete |
+| P8G | Extract fixed-order chain and migrate Kuaru alone | N09–N11, N15, N17–N25, N32–N33; GOV-01–07 | Bit-exact/tolerance parity, lifecycle/realtime suite, stage-budget comparison | Implemented; local gitlink, five-vector parity, lifecycle suite, and controlled budget verified; remote publication of the pinned commit remains |
 | P8H | Neutral observation plus Kuaru `ProfileCollector` adapter | N26–N30, N32–N33; GOV-01–07 | Metrics parity and disabled-observer overhead | Not started |
 | P8K | AHIO-owned stream roles and local identity plan; no core implementation ownership | L32–L54 in AHIO | AHIO evidence; prerequisite for P8I | Not started in AHIO |
 | P8I | AHIO consumes pinned verified core in USB neutral bypass | N02, N06–N08, N13–N16, N19–N23, N27, N29, N34 | AHIO conservation/buffering/xrun/CPU/physical-latency comparison | Not started in AHIO |

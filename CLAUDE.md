@@ -1,4 +1,4 @@
-# Gigante Labs Core — Engineering Context
+# Core Audio — Engineering Context
 
 ## Authority
 
@@ -12,10 +12,10 @@ This repository is the authoritative implementation of AHIO Group N
 those IDs and their P8F/P8G/P8H ordering. P8K/P8I/P8J are AHIO-owned consumer
 phases; the deferred vocoder does not belong to the initial extraction.
 
-P8F is complete. P8G implementation, bit-exact Kuaru parity, and controlled
-render-budget evidence are complete, but the phase still awaits its exact
-consumer gitlink. Do not begin P8H without a new `go` after that P8G gate is
-closed.
+P8F is complete. P8G implementation, local Kuaru gitlink, bit-exact parity,
+and controlled render-budget evidence are complete, but the pinned commit is
+not yet reachable from the configured `coreaudio` remote. Do not begin P8H
+until remote reachability closes P8G and a new `go` is received.
 
 ## Phase discipline
 
