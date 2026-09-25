@@ -163,7 +163,7 @@ procedure, and result. Assumptions are not facts.
   five-vector capture plus its internal reset repeat passed, and `cmp` matched
   every final raw vector byte-for-byte with the committed goldens.
 
-## 2026-09-24 — P8G chain extraction implemented; closure gates remain
+## 2026-09-24 — P8G chain extraction implemented; exact-pin gate remains
 
 ### Specified
 
@@ -205,9 +205,26 @@ procedure, and result. Assumptions are not facts.
 - Kuaru desktop configured and built with its pinned JUCE 8.0.8 supplied through
   the explicit interface target. Warnings observed were in existing JUCE/product
   sources, not the strict core target.
-- A fresh P8G capture and its fresh-process reset repeat completed. `cmp` matched
-  all five post-migration float32 vectors byte-for-byte with the reviewed P8F
-  goldens at block sizes 7, 64, 257, and 512.
-- P8G is not marked complete yet: the no-commit workflow prevents an exact
-  Kuaru gitlink until the core commit exists, and controlled stage-budget
-  evidence is still required. No P8H work has started.
+- A fresh capture from relinked Kuaru `5de7820` and its fresh-process reset
+  repeat completed. `cmp` matched all five post-migration float32 vectors
+  byte-for-byte with the reviewed P8F goldens at block sizes 7, 64, 257, and
+  512.
+- A controlled Linux x86_64/GCC 16.2.1 render-budget comparison used an exact
+  `git archive` of pre-migration Kuaru `0497c33` against Kuaru `5de7820` with
+  core `2aada7e`. Both were release-optimized developer builds using JUCE
+  8.0.8, 48 kHz stereo, eight voices, seed `1592594996`, the same
+  `live-changes.jsonl`, and CPU 4 affinity. Fifteen alternating pairs per block
+  rendered three seconds each. At block 7, baseline/current medians were
+  48.2656/49.6743 ms (+2.92%); at block 512 they were 24.5156/24.9065 ms
+  (+1.59%). The candidate remained 60.39x and 120.45x realtime, respectively,
+  and the output stayed bit-exact. Both deltas pass the reviewed 5% aggregate
+  render-budget tolerance. The additional work consists of per-block parameter
+  validation and neutral observer dispatch plus bounded full-buffer non-finite
+  scans; the larger delta at block 7 is consistent with the per-block part.
+- This offline comparison covers deterministic migration cost, not scheduler,
+  device, xrun, or disabled-profiler overhead; those remain P8H/product
+  evidence. Raw timing rows are retained at
+  `/tmp/p8g-benchmark-final-20260924.tsv` for this handoff.
+- P8G is not marked complete yet because Kuaru still lacks an exact core
+  gitlink and the core has no authoritative remote configured. No P8H work has
+  started.

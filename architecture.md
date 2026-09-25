@@ -116,8 +116,9 @@ never acquire hardware or parse product configuration.
 
 ### ADR-001 — Independent neutral core
 
-Status: Accepted; P8G Kuaru integration implemented, repository pin awaits the
-two no-commit handoff commits; AHIO adoption remains P8I.
+Status: Accepted; P8G Kuaru integration and controlled render-budget evidence
+are verified, while the repository pin awaits an authoritative remote and exact
+consumer gitlink; AHIO adoption remains P8I.
 
 The library is independently versioned and consumed in one direction by Kuaru
 and AHIO at pinned revisions. Product adapters remain with their products.
