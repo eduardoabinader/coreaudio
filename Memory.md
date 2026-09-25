@@ -305,3 +305,25 @@ procedure, and result. Assumptions are not facts.
   `396ce772a7ddb3117638504eee7733ef256d9ff6`; Kuaru commit `95d205d` pins that
   exact core gitlink. Remote reachability was not reverified during this
   closeout, and AHIO consumption remains explicitly unauthorized.
+
+## 2026-09-25 - Group O platform layer specified (no code)
+
+REQ-O01 to REQ-O24 added to `requirements.md` (mirror of AHIO Group O): a separate `gigantePlatform` target
+beside `giganteCore`, clarifying REQ-N06 without changing it; JUCE as the only audio backend; platform facts
+separate from a shared declarative endpoint policy; per-platform fact sources; phases P11A to P11H. Nothing
+implemented or verified. The Kuaru migration (P11H) needs its own go and is blocked, like P8G, on the pinned
+history being reachable from the remote.
+
+## 2026-09-25 — G1 consumer-side standalone build helpers
+
+- Kuaru now owns `build_coreaudio` and `build_coreaudio_all` in its `utils.sh`,
+  with `b_core` and `b_core_all` aliases. This is consumer tooling and creates
+  no dependency from this repository back to Kuaru.
+- The helpers configure the JUCE-free standalone target with warnings as
+  errors, tests enabled by default, separate Debug/Release build trees, and an
+  explicit revision composed of the exact commit plus the stable tracked-diff
+  digest when dirty. Production JUCE coverage remains in Kuaru's build.
+- `bash -n`, help/error checks, and simulated CMake/CTest calls verified option
+  parsing, Debug/Release paths, clean/no-tests behavior, both-config sequencing,
+  and revision propagation. No compilation was run in this tooling phase and
+  no AHIO file was changed.

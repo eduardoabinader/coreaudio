@@ -165,6 +165,7 @@ contract.
 | GLC-GOV-05 | Use modern target-based CMake; separate library, tests, and adapters; apply strict project warnings while isolating external warnings. | Yes | Yes | Yes | P8F target build with GCC 16.2.1 and `-Werror` |
 | GLC-GOV-06 | Do not vendor a second JUCE. Reuse a consumer-provided exact pin through explicit CMake integration if the extracted DSP still requires JUCE. | Yes | Yes | Yes | P8F core is JUCE-free; repository dependency audit |
 | GLC-GOV-07 | Fixtures record revision, parameters, rate, channels, block size, seed, origin, tolerance, and comparison mode; goldens are never automatically updated and every difference requires a documented decision. | Yes | Yes | Yes | P8F fixture plan, reviewed manifest, immutable capture workflow |
+| GLC-GOV-08 | The Kuaru consumer provides repeatable standalone Debug and Release entry points that keep build trees outside the core checkout, retain strict warnings and CTest, and pass an exact core commit plus tracked-source digest. This convenience tooling must not inject JUCE or make the core depend on Kuaru's checkout layout. | Yes | Yes | Yes | G1 shell syntax, option/error checks, and simulated Debug/Release CMake/CTest command verification |
 
 ## Phase traceability
 
@@ -177,6 +178,15 @@ contract.
 | P8K | AHIO-owned stream roles and local identity plan; no core implementation ownership | L32–L54 in AHIO | AHIO evidence; prerequisite for P8I | Not started in AHIO |
 | P8I | AHIO consumes pinned verified core in USB neutral bypass | N02, N06–N08, N13–N16, N19–N23, N27, N29, N34 | AHIO conservation/buffering/xrun/CPU/physical-latency comparison | Not started in AHIO |
 | P8J | AHIO enables independently calibrated effects incrementally | N10–N14, N17–N20, N24–N25, N35 | AHIO per-effect quality/stability/latency evidence | Not started in AHIO |
+| P11A | Specify the platform layer (Group O); no code | O01–O24 | Requirements review and consistency check | Specified 2026-09-25 |
+| P11B | `gigantePlatform` skeleton, host facts, platform selection reproducing `SinuPlatform` | O01–O03, O21–O22 | Configure/build on each available platform, header isolation, facts test | Not started |
+| P11C | Shared endpoint policy and fake fact source | O08–O12, O23 | Fake-inventory policy suite on desktop | Not started |
+| P11D | Measure the JUCE Android path against the USB baseline (AHIO-owned evidence) | O05, O07 | Latency, xruns, granted modes on two devices | Not started in AHIO |
+| P11E | Android fact source and AHIO adoption | O05–O06, O13–O16, O20, O24 | Device contract test including physical detach/attach | Not started |
+| P11F | Linux and macOS fact sources | O13–O15, O18–O19, O24 | Contract tests per platform | Not started |
+| P11G | iOS fact source | O17, O24 | Contract test on hardware | Not started |
+| P11H | Kuaru migrates to the platform layer | O04 | Kuaru parity and regression evidence | Deferred |
+| G1 | Add Kuaru-owned standalone core build/test helpers; no DSP or AHIO change | GOV-05–08 | Shell syntax, help/error paths, Debug/Release command propagation, `git diff --check` | Complete 2026-09-25 |
 
 The vocoder and every DSP optimization/redesign require a later explicit phase
 and `go`; they are not implied by completing P8F–P8J.

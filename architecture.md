@@ -105,6 +105,12 @@ the core never downloads JUCE or assumes a consumer checkout path.
 Revision identity is generated from explicit build metadata when available and
 has a documented reproducible fallback for exported source archives.
 
+Consumer tooling may wrap this standalone configuration without becoming a
+core dependency. Kuaru's `build_coreaudio` helper passes an exact commit plus a
+tracked-source digest, keeps Debug and Release trees separate, enables strict
+warnings, and runs CTest by default. It intentionally supplies no JUCE target;
+the Kuaru product build remains the production-JUCE verification path.
+
 ## Test architecture
 
 Fixtures consist of immutable PCM inputs, parameter/event timelines, lifecycle

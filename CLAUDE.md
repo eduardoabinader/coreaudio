@@ -76,6 +76,10 @@ sources when deterministic tests require them.
 - Never depend on the physical checkout layout of a consumer.
 - Consumers pin an exact core revision. Generate reproducible revision identity
   where applicable.
+- Kuaru offers `build_coreaudio`/`build_coreaudio_all` only as consumer-side
+  convenience wrappers for standalone JUCE-free builds. They are not core API,
+  do not establish a checkout-layout dependency in this repository, and do not
+  replace production JUCE verification in the Kuaru build.
 
 ## Testing
 
