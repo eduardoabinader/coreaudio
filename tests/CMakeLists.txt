@@ -39,6 +39,12 @@ target_compile_definitions(
 gigante_enable_project_warnings(gigantePlatformTests)
 add_test(NAME gigantePlatformTests COMMAND gigantePlatformTests)
 
+add_executable(giganteEndpointPolicyTests EndpointPolicyTests.cpp)
+target_link_libraries(giganteEndpointPolicyTests PRIVATE gigante::platform)
+target_compile_features(giganteEndpointPolicyTests PRIVATE cxx_std_17)
+gigante_enable_project_warnings(giganteEndpointPolicyTests)
+add_test(NAME giganteEndpointPolicyTests COMMAND giganteEndpointPolicyTests)
+
 add_library(gigantePublicHeaderIsolation OBJECT PublicHeaderIsolation.cpp)
 target_link_libraries(gigantePublicHeaderIsolation PRIVATE gigante::core)
 target_compile_features(gigantePublicHeaderIsolation PRIVATE cxx_std_17)

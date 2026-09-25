@@ -26,6 +26,9 @@ P11B is implemented in the core repository: `gigantePlatform` and host facts
 exist, with Linux runtime and Android cross-build evidence. Kuaru migration is
 still P11H and requires a separate `go`; Apple implementations are not verified
 without their toolchains.
+P11C adds only the neutral endpoint model and declarative selection policy with
+fake-inventory tests. It does not authorize a platform inventory backend,
+monitoring, consumer migration, or AHIO changes.
 
 ## Phase discipline
 

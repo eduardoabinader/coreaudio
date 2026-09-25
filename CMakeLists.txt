@@ -42,11 +42,13 @@ target_sources(
 target_sources(
     gigantePlatform
     PRIVATE
+        src/EndpointPolicy.cpp
         src/HostFacts.cpp
     PUBLIC
         FILE_SET HEADERS
         BASE_DIRS include
         FILES
+            include/gigante/EndpointPolicy.h
             include/gigante/HostFacts.h
 )
 

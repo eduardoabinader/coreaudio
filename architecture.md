@@ -59,6 +59,32 @@ them as `unavailable`; it never substitutes a plausible core count, memory
 size, architecture, or fingerprint. Host reads and string formatting are
 non-realtime operations and must not be called from an audio callback.
 
+## Endpoint facts and selection policy
+
+`EndpointFactSource` publishes generation-numbered snapshots of neutral facts.
+An endpoint has its own directional identity, optional platform id, JUCE device
+name, optional product name, direction, bus, channel count, and supported
+sample rates. A duplex platform device therefore appears as separate input and
+output endpoint identities even when both retain the same platform id.
+
+`EndpointRolePolicy` is declarative: required direction, allowed buses, minimum
+channels, and minimum sample rate. `evaluateEndpointSelection()` is a pure
+non-realtime operation over one immutable snapshot. It returns the requested
+identity, effective identity, inventory generation, a terminal status, and one
+decision per inventory entry with every applicable rejection reason.
+
+No request means no effective endpoint. Zero, one, and several eligible
+candidates have separate statuses; even one candidate remains merely eligible
+until explicitly requested. An unknown bus is rejected unless that exact
+endpoint was requested. Duplicate endpoint identities reject every duplicate.
+When a requested endpoint disappears, another eligible endpoint is marked
+`notRequested` rather than silently substituted. Non-finite or negative policy
+rates terminate as `invalidPolicy` before endpoint evaluation.
+
+The fake source used by tests replaces complete snapshots and advances their
+generation. It models discovery changes without defining monitoring threads or
+callbacks; those belong to P11E/P11F/P11G under REQ-O13 to REQ-O19.
+
 ## Planned endpoint, logging and build-policy layers
 
 Group O and Group P (2026-09-25) extend the structure without changing the core.
@@ -214,6 +240,15 @@ for Android arm64. macOS and iOS remain unverified.
 Platform selection happens once in CMake and produces an explicitly owned
 facts source. Missing facts remain unavailable, scheduling outcome is injected,
 and the platform layer makes no device or scheduling-policy selection.
+
+### ADR-005 — Selection requires an explicit endpoint identity
+
+Status: Accepted and verified in P11C.
+
+Eligibility and selection are different states. Policy may report candidates,
+but only a caller-supplied endpoint identity can become effective. The result
+retains requested and effective identities separately and never substitutes an
+eligible endpoint after loss.
 
 The API operates synchronously on granted callback buffers. Format conversion,
 channel conversion, buffering, copies, or thread changes—if ever required—must

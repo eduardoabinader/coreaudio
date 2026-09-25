@@ -369,6 +369,54 @@ history being reachable from the remote.
   neither toolchain is available in this Linux workspace. Consumer measurement
   publication, device facts/policy, and Kuaru migration remain later phases.
 
+### Commit-integrity follow-up
+
+- The user-created P11B commit `dd7f4e0` captured the CMake and documentation
+  changes but omitted every newly created P11B source/header/test file. Those
+  files remain untracked and are required for that commit's CMake graph to
+  configure and build. No history rewrite or commit was performed by the
+  assistant. They must be added in a corrective commit or an explicitly chosen
+  amend before a clean checkout can build P11B.
+- Kuaru's committed gitlink still points to `b39d375`; neither `dd7f4e0` nor
+  the later work is pinned by the product yet.
+
+## 2026-09-25 — P11C neutral endpoint policy
+
+### Implemented
+
+- Added neutral per-direction endpoint facts: endpoint identity, optional
+  platform id, JUCE device name, optional product name, bus, channels, and
+  supported sample rates. A generation-numbered inventory snapshot is the only
+  policy input.
+- Added a declarative role policy for required direction, allowed buses,
+  minimum channels, and minimum sample rate. Evaluation is platform-independent
+  and performs no discovery, I/O, device opening, or selection side effect.
+- Requested and effective endpoint identities are distinct. Without an
+  explicit request, zero, one, and several eligible candidates produce distinct
+  statuses but no effective endpoint.
+- Every inventory entry retains its disposition and all applicable rejection
+  reasons. Duplicate identities reject all duplicates. Unknown bus is rejected
+  unless that exact identity was explicitly requested. Invalid policy rate is
+  a distinct terminal error.
+- The test fake replaces complete inventories and increments their generation.
+  A loss/substitution sequence proves the replacement remains `notRequested`
+  until the caller explicitly requests it.
+
+### Verification
+
+- Strict Linux Debug and Release standalone builds passed with CTest 5/5 in
+  each configuration. The new hardware-free suite covers zero/one/several
+  candidates, explicit selection, all eligibility reasons, unknown bus,
+  duplicates, loss and substitution, duplex direction identity, missing and
+  invalid identities, invalid policy, stable names, and inventory generations.
+- Android arm64 `gigantePlatform`, including the common policy source,
+  cross-built in Release with NDK 29.0.13599879 and warnings as errors. The
+  isolated Kuaru-consumer target also rebuilt through its JUCE 8.0.8 interface
+  target; no Kuaru source consumes the endpoint contract.
+- P11C does not implement a platform inventory backend, monitoring thread,
+  consumer session freeze, transport derivation, Kuaru adoption, or any AHIO
+  change. Those remain separately gated phases.
+
 ## 2026-09-25 - Group P logger and shared build policy specified (no code)
 
 REQ-P01 to REQ-P15 added to `requirements.md`, phases P12A to P12E, and a planned-layers section plus ADR-008
@@ -376,3 +424,5 @@ in `architecture.md`. `giganteLog` is a provisional separate target; the logger 
 golden-vector contract, has five levels with compile-time and runtime ceilings, per-platform backends and no
 realtime API in v1. The build policy move is limited to the product-neutral part of `SinuBuildPolicy`, after an
 audit. Kuaru adoption is REQ-AL01 to AL04 in `memory/sinukaru_requirements.md`. Nothing implemented or verified.
+
+REQ-P16 added: spdlog is the planned engine behind `gigante::Logger`, gated by the P12B evaluation (store size, `os_log` sink, pin, realtime reachability, license). Not measured.
