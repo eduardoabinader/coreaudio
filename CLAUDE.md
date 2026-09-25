@@ -13,9 +13,12 @@ those IDs and their P8F/P8G/P8H ordering. P8K/P8I/P8J are AHIO-owned consumer
 phases; the deferred vocoder does not belong to the initial extraction.
 
 P8F is complete. P8G implementation, local Kuaru gitlink, bit-exact parity,
-and controlled render-budget evidence are complete, but the pinned commit is
-not yet reachable from the configured `coreaudio` remote. Do not begin P8H
-until remote reachability closes P8G and a new `go` is received.
+and controlled render-budget evidence are complete, but the pinned history is
+not yet reachable from the configured `coreaudio` remote. On 2026-09-25 the
+user explicitly authorized P8H to proceed as a documented exception to that
+publication gate. P8H is implemented and locally verified in the working
+trees; its core commit, updated Kuaru gitlink, and remote publication remain
+user-owned closeout actions. Do not begin P8K/P8I/P8J without a new `go`.
 
 ## Phase discipline
 

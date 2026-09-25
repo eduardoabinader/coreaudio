@@ -2,6 +2,7 @@
 
 #include "EffectsChainImplementation.h"
 
+#include <array>
 #include <cmath>
 
 namespace gigante
@@ -64,12 +65,14 @@ Status EffectsChain::prepare(
     return status(ErrorCode::none);
 }
 
-void EffectsChain::reset() noexcept
+void EffectsChain::reset(EffectsStageObserver* observer) noexcept
 {
-    reset(effectiveParameterValues);
+    reset(effectiveParameterValues, observer);
 }
 
-void EffectsChain::reset(const EffectsParameters& parameters) noexcept
+void EffectsChain::reset(
+    const EffectsParameters& parameters,
+    EffectsStageObserver* observer) noexcept
 {
     requestedParameterValues = parameters;
     std::uint64_t ignoredInvalidParameterCount = 0;
@@ -79,6 +82,8 @@ void EffectsChain::reset(const EffectsParameters& parameters) noexcept
     nonFiniteSampleTotal = 0;
     invalidParameterTotal = 0;
     recoveryTotal = 0;
+    if (observer != nullptr)
+        observer->onReset();
 }
 
 void EffectsChain::release() noexcept
@@ -154,10 +159,23 @@ ProcessReport EffectsChain::process(
     observation.algorithmicLatencySamples = algorithmicLatencySamples();
     observation.bypassed = report.bypassed;
 
+    const auto observeSignal = [observer, &buffer](EffectsSignalPoint point) noexcept
+    {
+        if (observer == nullptr)
+            return;
+        std::array<const float*, 2> channels {};
+        for (std::size_t channel = 0; channel < buffer.channelCount; ++channel)
+            channels[channel] = buffer.channels[channel];
+        observer->onSignal(
+            point,
+            { channels.data(), buffer.channelCount, buffer.sampleCount });
+    };
+
     if (observer != nullptr)
     {
         observer->onBlockBegin(observation);
         observer->onStageBegin(EffectsStage::input);
+        observeSignal(EffectsSignalPoint::input);
         observer->onStageEnd(EffectsStage::input);
     }
 
@@ -191,17 +209,25 @@ ProcessReport EffectsChain::process(
             context,
             observer,
             report);
+        observeSignal(EffectsSignalPoint::postChain);
         replaceNonFiniteSamples();
+    }
+    else
+    {
+        observeSignal(EffectsSignalPoint::postChain);
     }
 
     nonFiniteSampleTotal += report.nonFiniteSampleCount;
     invalidParameterTotal += report.invalidParameterCount;
     recoveryTotal += report.recoveryCount;
     observation.nonFiniteSampleCount = report.nonFiniteSampleCount;
+    observation.invalidParameterCount = report.invalidParameterCount;
+    observation.recoveryCount = report.recoveryCount;
 
     if (observer != nullptr)
     {
         observer->onStageBegin(EffectsStage::output);
+        observeSignal(EffectsSignalPoint::output);
         observer->onStageEnd(EffectsStage::output);
         observer->onBlockEnd(observation);
     }

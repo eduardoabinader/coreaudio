@@ -2,10 +2,10 @@
 
 ## Current state
 
-P8G implements the fixed-order production chain in the neutral library and
-migrates Kuaru through its product-owned parameter, source-level, noise-enable,
-output-safety, and `ProfileCollector` adapters. AHIO has not adopted the core;
-that remains outside this phase.
+P8H adds neutral bounded realtime metrics to the P8G fixed-order production
+chain. Kuaru retains its product-owned parameter and `ProfileCollector`
+adapters; builds without profiling pass a null observer to the core. AHIO has
+not adopted the core and remains outside this phase.
 
 ## Context and dependency direction
 
@@ -72,11 +72,24 @@ The audio path writes only bounded, preallocated counters and samples of timing
 data. A product-owned non-realtime adapter drains/publishes them and performs
 clock conversion, formatting, logging, serialization, and persistence.
 
+`RealtimeMetricsObserver` accepts an injected raw-tick clock and a budget in
+ticks per sample precomputed outside the callback. It keeps cumulative state on
+the single audio producer, then publishes complete snapshots through a fixed
+eight-slot SPSC queue using lock-free 32-bit indices. A full queue drops the
+publication, increments an observable counter, and never blocks or allocates.
+One non-realtime reader drains to the newest stable snapshot. Signal views are
+read-only and valid only for the synchronous observer call.
+
 Observation distinguishes input, stages, post-chain, and output; reports stage
 calls/cost, budget exceedance, algorithmic latency, resets, safety recovery,
 and non-finite counts. A bypassed zero-latency stage reports that fact rather
 than disappearing. Products separately retain requested/effective device and
 route evidence.
+
+The core exports a static CMake target (`giganteCore`, alias `gigante::core`).
+Repository independence does not imply runtime dynamic loading: Kuaru links
+the target into its product binary and calls `EffectsChain::process()` once per
+audio block after synthesis and polyphony gain.
 
 ## Build and dependency policy
 
@@ -171,3 +184,12 @@ that needs the production chain supplies an existing JUCE interface target via
 `GIGANTE_JUCE_TARGET`; Kuaru supplies its pinned JUCE 8.0.8 headers and links
 the same JUCE module objects it already owned. This is dependency injection at
 the target boundary, not product selection in public headers.
+
+### ADR-007 — Raw-tick SPSC metrics publication
+
+Status: Accepted and locally verified in P8H.
+
+Timing uses an injected monotonic raw-tick source. Callback code does not
+convert ticks to wall time. Metrics storage is fixed-size and single-producer;
+publication uses a bounded SPSC queue with an observable drop count. Formatting,
+serialization, logging, and persistence remain consumer work outside the core.

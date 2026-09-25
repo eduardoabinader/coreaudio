@@ -1,4 +1,5 @@
 #include "gigante/EffectsChain.h"
+#include "gigante/RealtimeMetrics.h"
 #include "gigante/Revision.h"
 
 #include <array>
@@ -68,12 +69,26 @@ struct RecordingObserver final : gigante::EffectsStageObserver
         return static_cast<std::size_t>(stage);
     }
 
-    std::array<int, 14> begun {};
-    std::array<int, 14> ended {};
+    std::array<int, gigante::effectsStageCount> begun {};
+    std::array<int, gigante::effectsStageCount> ended {};
     gigante::BlockObservation begin {};
     gigante::BlockObservation end {};
     int blockBeginCount = 0;
     int blockEndCount = 0;
+};
+
+class FakeTickClock final : public gigante::TickClock
+{
+public:
+    std::uint64_t currentTick() noexcept override
+    {
+        const std::uint64_t result = nextTick;
+        nextTick += tickStep;
+        return result;
+    }
+
+    std::uint64_t nextTick = 0;
+    std::uint64_t tickStep = 10;
 };
 
 gigante::AudioBufferView viewOf(
@@ -274,6 +289,114 @@ void testReconfigurationChangesEffectiveContract()
     REQUIRE(chain.process(viewOf(left, &right), {}, {}).status.ok());
 }
 
+void testRealtimeMetricsAreDeterministicAndBounded()
+{
+    gigante::EffectsChain chain;
+    REQUIRE(chain.prepare({ 48000.0, 2, 4 }).ok());
+
+    FakeTickClock clock;
+    gigante::RealtimeMetricsObserver observer(
+        clock,
+        { 48000, 1.0 });
+    chain.reset(&observer);
+
+    std::vector<float> left { -0.5F, 0.5F, -0.25F, 0.25F };
+    std::vector<float> right { 0.0F, 1.0F, -1.0F, 0.0F };
+    gigante::ProcessingContext context;
+    context.firstSamplePosition = 73;
+    REQUIRE(chain.process(viewOf(left, &right), {}, context, &observer).status.ok());
+
+    const auto metrics = observer.snapshot();
+    REQUIRE(metrics.blockCount == 1);
+    REQUIRE(metrics.resetCount == 1);
+    REQUIRE(metrics.firstSamplePosition == 73);
+    REQUIRE(metrics.maximumCallbackTicks == 50);
+    REQUIRE(metrics.callbackBudgetExceededCount == 1);
+    REQUIRE(metrics.algorithmicLatencySamples == 0);
+    REQUIRE(metrics.bypassed);
+    REQUIRE(metrics.input.peak == 1.0F);
+    REQUIRE(std::abs(metrics.input.rootMeanSquare - 0.572821974F) < 0.000001F);
+    REQUIRE(metrics.input.finiteSampleCount == 8);
+    REQUIRE(metrics.postChain.peak == metrics.input.peak);
+    REQUIRE(metrics.output.rootMeanSquare == metrics.input.rootMeanSquare);
+
+    const auto inputIndex = static_cast<std::size_t>(gigante::EffectsStage::input);
+    const auto outputIndex = static_cast<std::size_t>(gigante::EffectsStage::output);
+    REQUIRE(metrics.stages[inputIndex].callCount == 1);
+    REQUIRE(metrics.stages[inputIndex].totalTicks == 10);
+    REQUIRE(metrics.stages[inputIndex].maximumTicks == 10);
+    REQUIRE(metrics.stages[outputIndex].callCount == 1);
+    REQUIRE(metrics.stages[outputIndex].totalTicks == 10);
+
+    for (std::size_t index = 1; index + 1 < gigante::effectsStageCount; ++index)
+        REQUIRE(metrics.stages[index].callCount == 0);
+
+    // The fixed SPSC publication queue drops rather than blocking or allocating.
+    for (int block = 0; block < 10; ++block)
+        REQUIRE(chain.process(viewOf(left, &right), {}, context, &observer).status.ok());
+    observer.snapshot();
+    REQUIRE(chain.process(viewOf(left, &right), {}, context, &observer).status.ok());
+    const auto afterOverflow = observer.snapshot();
+    REQUIRE(afterOverflow.blockCount == 12);
+    REQUIRE(afterOverflow.droppedPublicationCount > 0);
+}
+
+void testRealtimeMetricsCountRecoveryAndFiniteLevels()
+{
+    gigante::EffectsChain chain;
+    REQUIRE(chain.prepare({ 48000.0, 1, 4 }).ok());
+
+    FakeTickClock clock;
+    gigante::RealtimeMetricsObserver observer(
+        clock,
+        { 48000, 1.0 });
+    std::vector<float> samples {
+        0.5F,
+        std::numeric_limits<float>::quiet_NaN(),
+        std::numeric_limits<float>::infinity(),
+        -0.5F
+    };
+    gigante::EffectsParameters parameters;
+    parameters.driveAmount = std::numeric_limits<float>::quiet_NaN();
+
+    const auto report = chain.process(viewOf(samples), parameters, {}, &observer);
+    REQUIRE(report.status.ok());
+    const auto metrics = observer.snapshot();
+    REQUIRE(metrics.nonFiniteSampleCount == 2);
+    REQUIRE(metrics.invalidParameterCount == 1);
+    REQUIRE(metrics.recoveryCount == 2);
+    REQUIRE(metrics.input.finiteSampleCount == 2);
+    REQUIRE(metrics.input.peak == 0.5F);
+    REQUIRE(metrics.input.rootMeanSquare == 0.5F);
+    REQUIRE(metrics.output.finiteSampleCount == 4);
+    REQUIRE(std::abs(metrics.output.rootMeanSquare - 0.353553385F) < 0.000001F);
+}
+
+void testRealtimeMetricsCoverEveryStage()
+{
+    FakeTickClock clock;
+    gigante::RealtimeMetricsObserver observer(clock, { 1000000000, 0.0 });
+    gigante::BlockObservation block;
+    block.sampleCount = 64;
+    observer.onBlockBegin(block);
+    for (std::size_t index = 0; index < gigante::effectsStageCount; ++index)
+    {
+        const auto stage = static_cast<gigante::EffectsStage>(index);
+        observer.onStageBegin(stage);
+        observer.onStageEnd(stage);
+    }
+    observer.onBlockEnd(block);
+
+    const auto metrics = observer.snapshot();
+    REQUIRE(metrics.callbackBudgetExceededCount == 0);
+    for (const auto& stage : metrics.stages)
+    {
+        REQUIRE(stage.callCount == 1);
+        REQUIRE(stage.totalTicks == 10);
+        REQUIRE(stage.maximumTicks == 10);
+    }
+}
+
 using TestFunction = void (*)();
 
 struct TestCase
@@ -286,13 +409,16 @@ struct TestCase
 
 int main()
 {
-    const std::array<TestCase, 6> tests {{
+    const std::array<TestCase, 9> tests {{
         { "lifecycle and configuration", testLifecycleAndConfiguration },
         { "invalid prepare", testInvalidPrepareIsSpecificAndRecoverable },
         { "process validation", testProcessValidationAndExplicitUnimplementedMode },
         { "bit-exact bypass", testBypassIsBitExactForFiniteSamplesAndVariableBlocks },
         { "non-finite recovery", testNonFiniteRecoveryIsDeterministicAndCounted },
-        { "reconfiguration", testReconfigurationChangesEffectiveContract }
+        { "reconfiguration", testReconfigurationChangesEffectiveContract },
+        { "deterministic realtime metrics", testRealtimeMetricsAreDeterministicAndBounded },
+        { "metrics recovery", testRealtimeMetricsCountRecoveryAndFiniteLevels },
+        { "metrics stage coverage", testRealtimeMetricsCoverEveryStage }
     }};
 
     int failures = 0;

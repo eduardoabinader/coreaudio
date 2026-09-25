@@ -12,4 +12,11 @@ struct AudioBufferView
     std::size_t sampleCount = 0;
 };
 
+struct AudioBufferReadView
+{
+    const float* const* channels = nullptr;
+    std::size_t channelCount = 0;
+    std::size_t sampleCount = 0;
+};
+
 } // namespace gigante

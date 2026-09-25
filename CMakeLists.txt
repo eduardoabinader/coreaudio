@@ -25,6 +25,7 @@ target_sources(
     giganteCore
     PRIVATE
         src/EffectsChain.cpp
+        src/RealtimeMetrics.cpp
     PUBLIC
         FILE_SET HEADERS
         BASE_DIRS include
@@ -32,6 +33,7 @@ target_sources(
             include/gigante/AudioBufferView.h
             include/gigante/EffectsChain.h
             include/gigante/EffectsStageObserver.h
+            include/gigante/RealtimeMetrics.h
             include/gigante/Revision.h
 )
 

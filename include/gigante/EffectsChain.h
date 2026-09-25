@@ -126,8 +126,10 @@ public:
     Status prepare(
         const PrepareSpecification& requested,
         const EffectsParameters& initialParameters) noexcept;
-    void reset() noexcept;
-    void reset(const EffectsParameters& parameters) noexcept;
+    void reset(EffectsStageObserver* observer = nullptr) noexcept;
+    void reset(
+        const EffectsParameters& parameters,
+        EffectsStageObserver* observer = nullptr) noexcept;
     void release() noexcept;
 
     ProcessReport process(

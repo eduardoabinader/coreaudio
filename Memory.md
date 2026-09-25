@@ -239,3 +239,55 @@ procedure, and result. Assumptions are not facts.
   the Kuaru product revision.
 - P8G still awaits remote reachability of its pinned commit. No P8H work has
   started.
+
+## 2026-09-25 — P8H neutral realtime observation
+
+### Authorization and boundary
+
+- The user explicitly said to continue after the remote-publication blocker was
+  restated. P8H therefore proceeded as a documented exception; this did not
+  authorize a push, history rewrite, AHIO integration, P8I, or P8J.
+- Kuaru still owns `ProfileCollector`, all log/JSON/WAV output, requested product
+  configuration, and product policy. The core remains a static neutral library.
+
+### Implemented
+
+- `RealtimeMetricsObserver` uses an injected raw-tick `TickClock`, fixed stage
+  arrays, and an eight-slot SPSC snapshot queue. Only lock-free 32-bit atomic
+  queue indices cross threads. Queue saturation drops a publication and counts
+  it; it never allocates, locks, blocks, logs, formats, or performs I/O.
+- Stable snapshots contain input/post-chain/output peak and RMS, finite sample
+  counts, per-stage call/total/maximum ticks, maximum callback ticks, callback
+  budget exceedance, algorithmic latency, explicit resets, invalid parameters,
+  recovery, non-finite samples, bypass state, first-sample position, tick rate,
+  and dropped publications.
+- Budget conversion is explicit outside the callback: consumers provide raw
+  ticks per sample. Signal observation receives a synchronous read-only PCM
+  view. `EffectsChain` still accepts `nullptr`; Kuaru returns `nullptr` from its
+  adapter when profiling is compiled out and retains the exact legacy stage
+  mapping when profiling is enabled.
+
+### Verified
+
+- GCC 16.2.1 strict standalone configure/build passed and CTest passed 3/3.
+  Deterministic fake-clock tests cover every stage, three signal points, reset,
+  budget exceedance, invalid/non-finite recovery, queue overflow, and stable
+  draining; public-header isolation includes the metrics API.
+- Kuaru's profiling-enabled desktop target rebuilt successfully with the pinned
+  JUCE 8.0.8. A fresh five-vector capture and reset repeat retained every
+  reviewed float32 SHA-256 exactly at blocks 7, 64, 257, and 512.
+- Disabled-observer overhead was measured with release-optimized standalone
+  cores before and after P8H, CPU 4 affinity, identical neutral stereo buffers,
+  and ten alternating 15-sample median runs. Median totals were
+  36.33465/37.24585 ms for 2,000,000 block-7 calls (+2.51%, about 0.46 ns per
+  call) and 31.55775/31.67775 ms for 100,000 block-512 calls (+0.38%, about
+  1.20 ns per call). Both are inside the already reviewed 5% aggregate budget.
+- A desktop `demo` verification attempt exposed an existing product build-policy
+  failure: Kuaru applies C++-only `-fvisibility-inlines-hidden` to mbedTLS C
+  sources while that dependency uses `-Werror`. No out-of-scope build-policy
+  change was made; the disabled `nullptr` branch is source-audited and the core
+  path is measured independently.
+- P8H remains uncommitted by policy. The Kuaru gitlink cannot identify these
+  working-tree changes until the user commits the core and updates the gitlink;
+  the configured remote still requires publication of the authoritative
+  history.
