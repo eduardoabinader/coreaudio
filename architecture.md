@@ -2,10 +2,11 @@
 
 ## Current state
 
-P8H adds neutral bounded realtime metrics to the P8G fixed-order production
-chain. Kuaru retains its product-owned parameter and `ProfileCollector`
-adapters; builds without profiling pass a null observer to the core. AHIO has
-not adopted the core and remains outside this phase.
+P8H provides neutral bounded realtime metrics for the fixed-order production
+chain. P11B adds the independent `gigantePlatform` target and host-facts
+contract without migrating either consumer. Kuaru retains its product-owned
+parameter, `ProfileCollector`, and platform adapters. AHIO has not adopted the
+core or platform target and remains outside this phase.
 
 ## Context and dependency direction
 
@@ -29,12 +30,55 @@ MIDI, configuration files, routes, codecs, transports, UI, or persistence.
 giganteCore              public C++ library
 giganteCoreTests         fast hardware-independent tests
 giganteGoldenVectorTests committed-vector format/finite-data tests
+gigantePlatform          platform facts; never linked by giganteCore
+gigantePlatformTests     host-facts and lifecycle contract tests
 consumer adapters        remain in Kuaru and AHIO repositories
 ```
 
 Targets are logical ownership boundaries, not permission to introduce a FIFO,
 copy, block adapter, thread, or dependency. Optional targets must not change
 the public library's product neutrality.
+
+## Platform facts boundary
+
+`gigantePlatform` is a sibling of `giganteCore`; neither target links the
+other. CMake selects exactly one hidden `HostFactsSource` implementation for
+Android, iOS, macOS, or Linux. Any other `CMAKE_SYSTEM_NAME` fails during
+configuration with the unsupported target in the diagnostic. Public headers
+and callers contain no platform conditional.
+
+`createHostFactsSource()` returns a separately owned instance rather than a
+singleton. A read returns platform identity, logical cores, physical memory,
+architecture, operating-system build fingerprint, the explicit source
+revision, and a caller-supplied realtime-scheduling outcome. Requested and
+observed scheduling policy/priority remain distinct. The facts source reports
+that outcome; it does not request scheduling or select policy.
+
+Potentially unavailable host values use `std::optional`. Formatting renders
+them as `unavailable`; it never substitutes a plausible core count, memory
+size, architecture, or fingerprint. Host reads and string formatting are
+non-realtime operations and must not be called from an audio callback.
+
+## Planned endpoint, logging and build-policy layers
+
+Group O and Group P (2026-09-25) extend the structure without changing the core.
+Only host facts (P11B) exist in the working tree; the rest is specified only.
+
+```text
+giganteCore      JUCE-free DSP; depends on nothing below
+gigantePlatform  HostFactsSource (present); EndpointInventory, EndpointMonitor,
+                 SessionPreparation (planned); AudioEndpoint, AudioBus,
+                 EndpointPolicy (planned, shared declarative C++)
+giganteLog       Logger with levels, per-platform backends, build-policy gating;
+                 BuildPolicy later (planned)
+```
+
+`giganteCore` links neither. The platform layer supplies facts and never
+selects; `EndpointPolicy` selects from facts and is testable with fake
+inventories. `Logger` is never called from a realtime callback; realtime code
+keeps `RealtimeMetrics`. Products depend on these targets, never the reverse.
+The full class hierarchy and collaborations are in
+`modules/ahio/ahio-architecture.md`, section "Target classes and collaborations".
 
 ## Processing boundary
 
@@ -111,6 +155,12 @@ tracked-source digest, keeps Debug and Release trees separate, enables strict
 warnings, and runs CTest by default. It intentionally supplies no JUCE target;
 the Kuaru product build remains the production-JUCE verification path.
 
+The platform target uses the same optional consumer-provided JUCE interface
+target but does not discover or vendor JUCE. P11B host facts need no JUCE API;
+linking the interface target only preserves the single dependency authority for
+later platform phases. Platform code is built with the same strict warning
+policy as the DSP target.
+
 ## Test architecture
 
 Fixtures consist of immutable PCM inputs, parameter/event timelines, lifecycle
@@ -136,8 +186,9 @@ never acquire hardware or parse product configuration.
 ### ADR-001 — Independent neutral core
 
 Status: Accepted; P8G/P8H Kuaru integration, controlled render-budget evidence,
-and exact consumer gitlink `396ce772a7ddb3117638504eee7733ef256d9ff6` are
-verified. Remote reachability was not reverified; AHIO adoption remains P8I.
+and the current exact consumer gitlink
+`b39d375d2766920485175fd3cd2e420005e62ce3` are verified locally. Remote
+reachability was not reverified; AHIO adoption remains P8I.
 
 The library is independently versioned and consumed in one direction by Kuaru
 and AHIO at pinned revisions. Product adapters remain with their products.
@@ -154,6 +205,15 @@ new defaults, or performance redesign are excluded from migration phases.
 Status: Accepted; implemented for bypass and production processing. The only
 whole-block copy is the preallocated bell-filter crossfade scratch already
 present in Kuaru; it adds no latency, allocation, FIFO, or thread hop.
+
+### ADR-004 — Explicit platform-facts ownership
+
+Status: Accepted and implemented in P11B; verified on Linux and compile-checked
+for Android arm64. macOS and iOS remain unverified.
+
+Platform selection happens once in CMake and produces an explicitly owned
+facts source. Missing facts remain unavailable, scheduling outcome is injected,
+and the platform layer makes no device or scheduling-policy selection.
 
 The API operates synchronously on granted callback buffers. Format conversion,
 channel conversion, buffering, copies, or thread changes—if ever required—must
@@ -206,3 +266,14 @@ for instrumentation and enables counting on the thread surrounding prepared
 test source runs against both the standalone neutral implementation and a
 consumer-supplied JUCE production implementation so realtime evidence covers
 the actual fixed effects chain rather than only its bypass facade.
+
+### ADR-008 — Endpoint policy and logger as separate shared layers
+
+Status: Proposed 2026-09-25 (requirements only).
+
+JUCE remains the only audio backend. The platform layer supplies facts JUCE
+lacks (bus, id, hot-plug on Android and Linux); a shared declarative policy
+selects endpoints; the bus is an attribute, not a subclass. The logger is a
+small separate target so the core stays free of it. Alternatives rejected:
+putting endpoints or logging inside `giganteCore` (violates REQ-N06 and the
+realtime contract), and per-product copies (the situation this replaces).

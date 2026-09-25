@@ -100,9 +100,9 @@ are tracked independently as for Group N.
 
 | ID | Requirement | Specified | Implemented | Verified | Phase / evidence |
 |---|---|---:|---:|---:|---|
-| REQ-O01 | The platform layer shall live in the `coreaudio` repository as a separate target `gigantePlatform`, in the single namespace `gigante`, next to and independent of `giganteCore`. `giganteCore` shall never depend on it, which keeps REQ-N06 true for the core. Kuaru and AHIO shall consume the same pinned revision of both targets, with no copies or forks (REQ-N02). | Yes | No | No | Not started |
-| REQ-O02 | The platform layer shall contain no Kuaru or AHIO type and no encoder/decoder role, stream plan, transport, protocol, UI or DSP. Names follow REQ-N03 to REQ-N05: `UpperCamelCase` types, `lowerCamelCase` members, no leading underscore and no `Sinu` or `Ahio` in shared names. | Yes | No | No | Not started |
-| REQ-O03 | One concrete implementation per target platform (Android, iOS, macOS, Linux) shall be selected at link time, following the precedent of `SinuPlatform`. No public header and no caller shall contain a platform conditional (REQ-M12). An unsupported target platform shall fail at configure time with a message naming the platform. | Yes | No | No | Not started |
+| REQ-O01 | The platform layer shall live in the `coreaudio` repository as a separate target `gigantePlatform`, in the single namespace `gigante`, next to and independent of `giganteCore`. `giganteCore` shall never depend on it, which keeps REQ-N06 true for the core. Kuaru and AHIO shall consume the same pinned revision of both targets, with no copies or forks (REQ-N02). | Yes | Partial | Partial | P11B target independence verified; consumer adoption remains P11E/P11H and AHIO is unauthorized |
+| REQ-O02 | The platform layer shall contain no Kuaru or AHIO type and no encoder/decoder role, stream plan, transport, protocol, UI or DSP. Names follow REQ-N03 to REQ-N05: `UpperCamelCase` types, `lowerCamelCase` members, no leading underscore and no `Sinu` or `Ahio` in shared names. | Yes | Yes | Yes | P11B source/header audit and public-header isolation build |
+| REQ-O03 | One concrete implementation per target platform (Android, iOS, macOS, Linux) shall be selected at link time, following the precedent of `SinuPlatform`. No public header and no caller shall contain a platform conditional (REQ-M12). An unsupported target platform shall fail at configure time with a message naming the platform. | Yes | Yes | Partial | P11B Linux runtime, Android arm64 cross-build, Generic configure rejection; macOS/iOS not locally verified |
 | REQ-O04 | Moving the existing Kuaru pieces (`SinuPlatform`, `SinuHeadsetMonitor`, `SinuAudioFocus`, `SinuWakeLock`, `SinuForegroundService` and the shared `android_audio_runtime` sources) into the platform layer is a separate later phase with its own `go`, parity evidence and pinned-revision change. Until it is approved, Kuaru behavior shall not change. | Yes | No | No | Not started |
 
 ### O.2 — JUCE as the only audio backend
@@ -140,15 +140,45 @@ are tracked independently as for Group N.
 | REQ-O18 | macOS: the bus shall come from the CoreAudio transport-type property, and change events from JUCE's own device-list notification. | Yes | No | No | Not started |
 | REQ-O19 | Linux: the bus shall come from ALSA card and sysfs information. Hot-plug shall use udev, inotify or bounded polling, the chosen mechanism recorded with its evidence. It shall run headless, with no display or session bus. | Yes | No | No | Not started |
 | REQ-O20 | Session preparation shall be one interface with a platform implementation each: Android foreground service, wake and multicast locks and audio focus; iOS audio session and background audio; macOS App Nap prevention; Linux scheduling policy. It hosts the platform levers of REQ-M14, REQ-M111 and REQ-M122, and shall report requested, applied and observed results. | Yes | No | No | Not started |
-| REQ-O21 | Host facts (logical cores, RAM, architecture, platform name, build fingerprint and the outcome of the realtime scheduling request) shall be provided by the platform layer and recorded with every measurement (REQ-M13). | Yes | No | No | Not started |
+| REQ-O21 | Host facts (logical cores, RAM, architecture, platform name, build fingerprint and the outcome of the realtime scheduling request) shall be provided by the platform layer and recorded with every measurement (REQ-M13). | Yes | Yes | Partial | P11B Linux facts/lifecycle tests and Android cross-build; consumer measurement recording and Apple verification remain |
 
 ### O.6 — Dependencies and verification
 
 | ID | Requirement | Specified | Implemented | Verified | Phase / evidence |
 |---|---|---:|---:|---:|---|
-| REQ-O22 | The platform target shall not pull in the DSP. It shall consume JUCE through the same consumer-provided target as the core (GLC-GOV-06) and shall build with the core's warning level and `-Werror`. | Yes | No | No | Not started |
+| REQ-O22 | The platform target shall not pull in the DSP. It shall consume JUCE through the same consumer-provided target as the core (GLC-GOV-06) and shall build with the core's warning level and `-Werror`. | Yes | Yes | Yes | P11B independent link graph, strict Linux/Android builds, and Kuaru-supplied JUCE interface-target build |
 | REQ-O23 | Policy tests with a fake fact source shall cover zero, one and several candidates, loss, substitution, duplicates, an unknown bus, a direction mismatch and the rejection reasons. They shall run on a desktop with no device. | Yes | No | No | Not started |
 | REQ-O24 | Each platform fact source shall pass one shared contract test for its fields. Verification shall be tracked per platform: Android on a device including a physical detach and attach, macOS and Linux locally, and iOS only when hardware is available. A result on one platform shall not be reported as verified for another. | Yes | No | No | Not started |
+
+
+## Group P — Logger and shared build policy
+
+Product-neutral part of AHIO Group P. `giganteLog` is separate from `giganteCore`.
+
+### P.1 — Logger (`gigante::Logger`)
+
+| ID | Requirement | Specified | Implemented | Verified | Phase / evidence |
+|---|---|---:|---:|---:|---|
+| REQ-P01 | The AHIO `AhioLogger` shall be generalized as `gigante::Logger` in the `coreaudio` repository, in its own small target `giganteLog`, in the single namespace `gigante` and free of JUCE. `giganteCore` shall not depend on it (REQ-N06, and the realtime contract forbids logging in a callback). `gigantePlatform`, AHIO and later Kuaru depend on `giganteLog`. The target split is provisional and may be revisited when the code is written. | Yes | No | No | Not started |
+| REQ-P02 | Log lines shall keep the AHIO format: `session=<id> event=<name> key=value ...`, fields sorted by key, and space, carriage return and line feed in event, key and value replaced by `_` so that one event is exactly one line. Existing host parsers and the `AhioLoggerTest` cases shall be preserved as golden vectors, so migration does not change any emitted line. | Yes | No | No | Not started |
+| REQ-P03 | The logger shall have ordered levels `ERROR`, `WARN`, `INFO`, `DEBUG` and `TRACE`. Every call site names its level. Two ceilings apply: a compile-time ceiling set by the build policy, above which the call is compiled out and its arguments are not evaluated, and a runtime level that may lower but never raise the output above the compile-time ceiling. | Yes | No | No | Not started |
+| REQ-P04 | The compile-time ceiling and the default runtime level shall come from the build policy (REQ-P13 to REQ-P15), not from each call site. Provisional values, to be confirmed against the Kuaru store-logging decision: `store` allows `WARN` and `ERROR` only; `demo` allows up to `INFO`; `dev` and `profiling` allow all levels. No build policy shall depend on a call site's own conditional. | Yes | No | No | Not started |
+| REQ-P05 | Output backends shall be selected at link time per platform, with no platform conditional in callers (REQ-O03): Android logcat, iOS and macOS `os_log`, Linux standard error or the system journal. A capture sink for tests shall be available in every build that has tests. Each backend shall map the five levels to its native priorities and report any level it cannot represent. | Yes | No | No | Not started |
+| REQ-P06 | The logger shall be callable from any non-realtime thread, shall not interleave the text of two events, and shall format outside any lock. It shall provide no call for a realtime callback in its first version: realtime code keeps `RealtimeMetrics` and the observation hooks. A bounded lock-free enqueue drained by a non-realtime thread is a possible later addition and needs its own requirement, with dropped events counted. | Yes | No | No | Not started |
+| REQ-P07 | A session id shall be a process-unique, monotonically increasing value obtained from the logger. Events without a session shall use an explicit value that cannot be confused with a real session. | Yes | No | No | Not started |
+| REQ-P08 | No line shall contain a raw pointer or component address, a user identifier or other personal data. Field values shall be sanitized deterministically, and values that a `store` build must not emit shall be `DEBUG` or `TRACE` only. | Yes | No | No | Not started |
+| REQ-P09 | Kotlin and Java code shall log through a thin binding that produces byte-identical lines to the C++ logger, or keep `AhioLogger` delegating to it. `AhioLogger` shall remain unchanged until its replacement passes the golden vectors of REQ-P02. Java `Log.*` calls in Kuaru are covered only by the later Kuaru adoption. | Yes | No | No | Not started |
+| REQ-P10 | Tests shall cover the golden format vectors, sanitization, field ordering, level filtering at both ceilings, proof that arguments of a compiled-out call are not evaluated, the capture sink, per-platform level mapping, and concurrent logging without interleaving. Store and dev configurations shall each be built and tested. | Yes | No | No | Not started |
+| REQ-P11 | AHIO shall adopt `gigante::Logger` first, replacing `AhioLogger`. Kuaru adoption, replacing `SINU_LOG_INFO`, direct `juce::Logger::writeToLog` calls and Java `Log.*` calls, is a separate later phase with its own `go` and shall preserve today's store-build silence. Until then Kuaru's logging shall not change. | Yes | No | No | Not started |
+
+### P.2 — Build policy
+
+| ID | Requirement | Specified | Implemented | Verified | Phase / evidence |
+|---|---|---:|---:|---:|---|
+| REQ-P12 | The release types and the generic build-derived facts of `SinuBuildPolicy` are candidates for the shared repository, because AHIO may adopt several release types. Product-specific features (Kuaru keybed, preset choice, demo UI, voice controls, sample data sources) shall stay in Kuaru. The shared part shall be named `gigante::BuildPolicy`, contain no `Sinu` or `Ahio` name, and be specified after `Source/SinuBuildPolicy.h` and `SinuReleaseType.h` are audited for which members are truly product-neutral. | Yes | No | No | Not started |
+| REQ-P13 | The shared build policy shall expose, as `constexpr` values derived from compile definitions, at least the release type and the generic facts the logger and diagnostics need: log ceiling, whether diagnostic capture is compiled in, whether the test-automation bridge is compiled in, and whether store hardening applies. A capability that a `store` build excludes shall be excluded at compile time, so no runtime state can enable it (following Kuaru's `kCaptureCompiledIn`). | Yes | No | No | Not started |
+| REQ-P14 | Each product shall declare its own release types and map them onto the shared facts in one place. Adding a release type to one product shall not change the behavior of another. An unknown release-type string shall be rejected, never defaulted. | Yes | No | No | Not started |
+| REQ-P15 | Until P12 to P14 are approved and implemented, the logger shall take its ceiling from a small `LogPolicy` value supplied by the product at build time, so the logger can be delivered without waiting for the shared build policy. Moving `SinuBuildPolicy` out of Kuaru is a separate later phase with its own `go`, parity evidence and a pinned-revision change. | Yes | No | No | Not started |
 
 
 ## Repository governance requirements
@@ -174,18 +204,23 @@ contract.
 | G0 | Establish the core repository as Group N authority and import its governance/architecture context | N01–N45; GOV-01–04 | Required documents, source audit, consistency checks, `git diff --check` | Complete 2026-09-24 |
 | P8F | Build skeleton plus deterministic Kuaru characterization; no production DSP moves | N01–N08, N21–N23, N26, N31, N33; GOV-01–07 | Configure/build/CTest, header isolation, dependency decision, fixture schema, reviewed pre-migration vectors | Complete 2026-09-24 |
 | P8G | Extract fixed-order chain and migrate Kuaru alone | N09–N11, N15, N17–N25, N32–N33; GOV-01–07 | Bit-exact/tolerance parity, lifecycle/realtime suite, stage-budget comparison | Complete locally: exact Kuaru gitlink, five-vector parity, lifecycle suite, controlled budget, and zero-allocation production test verified; remote reachability not reverified |
-| P8H | Neutral observation plus Kuaru `ProfileCollector` adapter | N26–N30, N32–N33; GOV-01–07 | Metrics parity and disabled-observer overhead | Complete locally 2026-09-25; committed as `396ce772`, exactly pinned by Kuaru, remote reachability not reverified |
+| P8H | Neutral observation plus Kuaru `ProfileCollector` adapter | N26–N30, N32–N33; GOV-01–07 | Metrics parity and disabled-observer overhead | Complete locally 2026-09-25; began at `396ce772`, allocation closeout followed, current Kuaru baseline is `b39d375`, remote reachability not reverified |
 | P8K | AHIO-owned stream roles and local identity plan; no core implementation ownership | L32–L54 in AHIO | AHIO evidence; prerequisite for P8I | Not started in AHIO |
 | P8I | AHIO consumes pinned verified core in USB neutral bypass | N02, N06–N08, N13–N16, N19–N23, N27, N29, N34 | AHIO conservation/buffering/xrun/CPU/physical-latency comparison | Not started in AHIO |
 | P8J | AHIO enables independently calibrated effects incrementally | N10–N14, N17–N20, N24–N25, N35 | AHIO per-effect quality/stability/latency evidence | Not started in AHIO |
 | P11A | Specify the platform layer (Group O); no code | O01–O24 | Requirements review and consistency check | Specified 2026-09-25 |
-| P11B | `gigantePlatform` skeleton, host facts, platform selection reproducing `SinuPlatform` | O01–O03, O21–O22 | Configure/build on each available platform, header isolation, facts test | Not started |
+| P11B | `gigantePlatform` skeleton, host facts, platform selection reproducing `SinuPlatform` | O01–O03, O21–O22 | Configure/build on each available platform, header isolation, facts test | Complete 2026-09-25 on available Linux/Android toolchains; Apple verification pending |
 | P11C | Shared endpoint policy and fake fact source | O08–O12, O23 | Fake-inventory policy suite on desktop | Not started |
 | P11D | Measure the JUCE Android path against the USB baseline (AHIO-owned evidence) | O05, O07 | Latency, xruns, granted modes on two devices | Not started in AHIO |
 | P11E | Android fact source and AHIO adoption | O05–O06, O13–O16, O20, O24 | Device contract test including physical detach/attach | Not started |
 | P11F | Linux and macOS fact sources | O13–O15, O18–O19, O24 | Contract tests per platform | Not started |
 | P11G | iOS fact source | O17, O24 | Contract test on hardware | Not started |
 | P11H | Kuaru migrates to the platform layer | O04 | Kuaru parity and regression evidence | Deferred |
+| P12A | Specify the logger and shared build policy (Group P); no code | P01–P15 | Requirements review | Specified 2026-09-25 |
+| P12B | `giganteLog` with format, levels, backends, tests | P01–P10, P15 | Golden vectors, level-gating and per-platform builds | Not started |
+| P12C | AHIO adopts the logger | P09, P11 | AHIO tests; `AhioLogger` retired | Not started in AHIO |
+| P12D | Audit `SinuBuildPolicy`; `gigante::BuildPolicy` | P12–P14 | Audit record, constexpr tests | Not started |
+| P12E | Kuaru adopts logger and build policy | P11, P15 | Kuaru parity, store-build silence | Deferred |
 | G1 | Add Kuaru-owned standalone core build/test helpers; no DSP or AHIO change | GOV-05–08 | Shell syntax, help/error paths, Debug/Release command propagation, `git diff --check` | Complete 2026-09-25 |
 
 The vocoder and every DSP optimization/redesign require a later explicit phase

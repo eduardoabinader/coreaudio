@@ -29,7 +29,32 @@ add_test(
         -P ${CMAKE_CURRENT_SOURCE_DIR}/../cmake/VerifyKuaruGoldens.cmake
 )
 
+add_executable(gigantePlatformTests HostFactsTests.cpp)
+target_link_libraries(gigantePlatformTests PRIVATE gigante::platform)
+target_compile_features(gigantePlatformTests PRIVATE cxx_std_17)
+target_compile_definitions(
+    gigantePlatformTests
+    PRIVATE GIGANTE_EXPECTED_PLATFORM_NAME="${GIGANTE_PLATFORM_NAME}"
+)
+gigante_enable_project_warnings(gigantePlatformTests)
+add_test(NAME gigantePlatformTests COMMAND gigantePlatformTests)
+
 add_library(gigantePublicHeaderIsolation OBJECT PublicHeaderIsolation.cpp)
 target_link_libraries(gigantePublicHeaderIsolation PRIVATE gigante::core)
 target_compile_features(gigantePublicHeaderIsolation PRIVATE cxx_std_17)
 gigante_enable_project_warnings(gigantePublicHeaderIsolation)
+
+add_library(
+    gigantePlatformPublicHeaderIsolation
+    OBJECT
+    PlatformPublicHeaderIsolation.cpp
+)
+target_link_libraries(
+    gigantePlatformPublicHeaderIsolation
+    PRIVATE gigante::platform
+)
+target_compile_features(
+    gigantePlatformPublicHeaderIsolation
+    PRIVATE cxx_std_17
+)
+gigante_enable_project_warnings(gigantePlatformPublicHeaderIsolation)

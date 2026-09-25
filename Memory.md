@@ -327,3 +327,52 @@ history being reachable from the remote.
   parsing, Debug/Release paths, clean/no-tests behavior, both-config sequencing,
   and revision propagation. No compilation was run in this tooling phase and
   no AHIO file was changed.
+
+## 2026-09-25 — P11B platform target and host facts
+
+### Implemented
+
+- P11B started from core commit `b39d375d2766920485175fd3cd2e420005e62ce3`,
+  which is the exact gitlink currently pinned by Kuaru.
+- Added the static `gigantePlatform` target (`gigante::platform`) beside and
+  independent of `giganteCore`. The DSP target does not link it.
+- CMake selects one implementation for Android, iOS, macOS, or Linux. Any
+  unsupported system fails configuration and names `CMAKE_SYSTEM_NAME`.
+- `HostFactsSource` is explicitly created and RAII-owned; there is no hidden
+  singleton. It reports platform name/type, logical cores, physical RAM,
+  architecture, OS build fingerprint, source revision, and the injected
+  realtime-scheduling result.
+- Requested and observed scheduling policy/priority remain separate. The facts
+  source records the supplied result and performs no scheduling request or
+  policy selection.
+- Unavailable facts are `std::optional` and format as `unavailable`; the layer
+  does not silently substitute one core, zero memory, or an invented identity.
+- Android reads `ro.build.fingerprint`; Linux uses `uname`; Apple sources use
+  `sysctl`. No public header contains a platform conditional. Kuaru and AHIO
+  were not migrated or modified.
+
+### Verified
+
+- Strict Debug and Release Linux standalone builds passed with GCC 16.2.1 and
+  CTest 4/4 in each configuration.
+  Tests cover real facts, explicit scheduling round-trip, stable names,
+  unavailable-value formatting, repeated independent source lifecycle, and
+  public-header isolation.
+- Android arm64 `gigantePlatform` cross-built with NDK 29.0.13599879,
+  `ANDROID_PLATFORM=android-29`, Clang 20.0.0, and warnings as errors.
+- The existing Kuaru desktop build was reconfigured and its isolated
+  `gigantePlatform` target built successfully through Kuaru's pinned JUCE 8.0.8
+  interface target. No product source linked or consumed the platform API.
+- A `CMAKE_SYSTEM_NAME=Generic` configure was required to fail and produced
+  `gigantePlatform does not support target platform 'Generic'`.
+- macOS and iOS implementations are present but are not marked verified because
+  neither toolchain is available in this Linux workspace. Consumer measurement
+  publication, device facts/policy, and Kuaru migration remain later phases.
+
+## 2026-09-25 - Group P logger and shared build policy specified (no code)
+
+REQ-P01 to REQ-P15 added to `requirements.md`, phases P12A to P12E, and a planned-layers section plus ADR-008
+in `architecture.md`. `giganteLog` is a provisional separate target; the logger keeps the AHIO line format as a
+golden-vector contract, has five levels with compile-time and runtime ceilings, per-platform backends and no
+realtime API in v1. The build policy move is limited to the product-neutral part of `SinuBuildPolicy`, after an
+audit. Kuaru adoption is REQ-AL01 to AL04 in `memory/sinukaru_requirements.md`. Nothing implemented or verified.

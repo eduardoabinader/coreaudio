@@ -20,6 +20,8 @@ endif()
 
 add_library(giganteCore STATIC)
 add_library(gigante::core ALIAS giganteCore)
+add_library(gigantePlatform STATIC)
+add_library(gigante::platform ALIAS gigantePlatform)
 
 target_sources(
     giganteCore
@@ -37,17 +39,51 @@ target_sources(
             include/gigante/Revision.h
 )
 
+target_sources(
+    gigantePlatform
+    PRIVATE
+        src/HostFacts.cpp
+    PUBLIC
+        FILE_SET HEADERS
+        BASE_DIRS include
+        FILES
+            include/gigante/HostFacts.h
+)
+
+if(ANDROID)
+    target_sources(gigantePlatform PRIVATE src/AndroidHostFacts.cpp)
+    set(GIGANTE_PLATFORM_NAME "Android")
+elseif(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    target_sources(gigantePlatform PRIVATE src/IosHostFacts.cpp)
+    set(GIGANTE_PLATFORM_NAME "iOS")
+elseif(APPLE)
+    target_sources(gigantePlatform PRIVATE src/MacOsHostFacts.cpp)
+    set(GIGANTE_PLATFORM_NAME "macOS")
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_sources(gigantePlatform PRIVATE src/LinuxHostFacts.cpp)
+    set(GIGANTE_PLATFORM_NAME "Linux")
+else()
+    message(FATAL_ERROR
+        "gigantePlatform does not support target platform '${CMAKE_SYSTEM_NAME}'")
+endif()
+
 if(GIGANTE_JUCE_TARGET)
     target_sources(giganteCore PRIVATE src/JuceEffectsChainImplementation.cpp)
     target_link_libraries(giganteCore PRIVATE ${GIGANTE_JUCE_TARGET})
     target_compile_definitions(giganteCore PRIVATE GIGANTE_HAS_JUCE_DSP=1)
+    target_link_libraries(gigantePlatform PRIVATE ${GIGANTE_JUCE_TARGET})
 else()
     target_sources(giganteCore PRIVATE src/NeutralEffectsChainImplementation.cpp)
 endif()
 
 target_compile_features(giganteCore PUBLIC cxx_std_17)
+target_compile_features(gigantePlatform PUBLIC cxx_std_17)
 target_compile_definitions(
     giganteCore
+    PUBLIC GIGANTE_REVISION="${GIGANTE_REVISION}"
+)
+target_compile_definitions(
+    gigantePlatform
     PUBLIC GIGANTE_REVISION="${GIGANTE_REVISION}"
 )
 
@@ -75,6 +111,7 @@ function(gigante_enable_project_warnings target)
 endfunction()
 
 gigante_enable_project_warnings(giganteCore)
+gigante_enable_project_warnings(gigantePlatform)
 
 if(GIGANTE_BUILD_TESTS)
     include(CTest)

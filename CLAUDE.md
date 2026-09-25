@@ -14,13 +14,18 @@ phases; the deferred vocoder does not belong to the initial extraction.
 
 P8F is complete. P8G implementation, bit-exact parity, and controlled
 render-budget evidence are complete. On 2026-09-25 the user explicitly
-authorized P8H despite the then-open publication gate. P8H is committed as
-`396ce772a7ddb3117638504eee7733ef256d9ff6`, and Kuaru pins that exact gitlink;
-remote reachability was not reverified in this workspace. Do not begin
-P8K/P8I/P8J without a new `go`.
+authorized P8H despite the then-open publication gate. P8H began at
+`396ce772a7ddb3117638504eee7733ef256d9ff6`; allocation verification and G1
+documentation followed, and Kuaru currently pins core commit
+`b39d375d2766920485175fd3cd2e420005e62ce3`. Remote reachability was not
+reverified in this workspace. Do not begin P8K/P8I/P8J without a new `go`.
 On 2026-09-25 the user further clarified that AHIO requirements are not closed:
 until the user explicitly says they are closed, `go` applies only to
 Kuaru/coreaudio work and must not start an AHIO stream or DSP integration phase.
+P11B is implemented in the core repository: `gigantePlatform` and host facts
+exist, with Linux runtime and Android cross-build evidence. Kuaru migration is
+still P11H and requires a separate `go`; Apple implementations are not verified
+without their toolchains.
 
 ## Phase discipline
 
