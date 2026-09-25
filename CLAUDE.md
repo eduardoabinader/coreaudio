@@ -12,13 +12,15 @@ This repository is the authoritative implementation of AHIO Group N
 those IDs and their P8F/P8G/P8H ordering. P8K/P8I/P8J are AHIO-owned consumer
 phases; the deferred vocoder does not belong to the initial extraction.
 
-P8F is complete. P8G implementation, local Kuaru gitlink, bit-exact parity,
-and controlled render-budget evidence are complete, but the pinned history is
-not yet reachable from the configured `coreaudio` remote. On 2026-09-25 the
-user explicitly authorized P8H to proceed as a documented exception to that
-publication gate. P8H is implemented and locally verified in the working
-trees; its core commit, updated Kuaru gitlink, and remote publication remain
-user-owned closeout actions. Do not begin P8K/P8I/P8J without a new `go`.
+P8F is complete. P8G implementation, bit-exact parity, and controlled
+render-budget evidence are complete. On 2026-09-25 the user explicitly
+authorized P8H despite the then-open publication gate. P8H is committed as
+`396ce772a7ddb3117638504eee7733ef256d9ff6`, and Kuaru pins that exact gitlink;
+remote reachability was not reverified in this workspace. Do not begin
+P8K/P8I/P8J without a new `go`.
+On 2026-09-25 the user further clarified that AHIO requirements are not closed:
+until the user explicitly says they are closed, `go` applies only to
+Kuaru/coreaudio work and must not start an AHIO stream or DSP integration phase.
 
 ## Phase discipline
 

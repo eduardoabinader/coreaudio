@@ -5,6 +5,9 @@ add_executable(
 
 target_link_libraries(giganteCoreTests PRIVATE gigante::core)
 target_compile_features(giganteCoreTests PRIVATE cxx_std_17)
+if(GIGANTE_JUCE_TARGET)
+    target_compile_definitions(giganteCoreTests PRIVATE GIGANTE_TESTS_WITH_JUCE_DSP=1)
+endif()
 gigante_enable_project_warnings(giganteCoreTests)
 
 add_test(NAME giganteCoreTests COMMAND giganteCoreTests)

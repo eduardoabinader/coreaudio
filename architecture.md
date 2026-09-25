@@ -129,9 +129,9 @@ never acquire hardware or parse product configuration.
 
 ### ADR-001 — Independent neutral core
 
-Status: Accepted; P8G Kuaru integration and controlled render-budget evidence
-are verified, while the repository pin awaits an authoritative remote and exact
-consumer gitlink; AHIO adoption remains P8I.
+Status: Accepted; P8G/P8H Kuaru integration, controlled render-budget evidence,
+and exact consumer gitlink `396ce772a7ddb3117638504eee7733ef256d9ff6` are
+verified. Remote reachability was not reverified; AHIO adoption remains P8I.
 
 The library is independently versioned and consumed in one direction by Kuaru
 and AHIO at pinned revisions. Product adapters remain with their products.
@@ -193,3 +193,10 @@ Timing uses an injected monotonic raw-tick source. Callback code does not
 convert ticks to wall time. Metrics storage is fixed-size and single-producer;
 publication uses a bounded SPSC queue with an observable drop count. Formatting,
 serialization, logging, and persistence remain consumer work outside the core.
+
+The test executable replaces ordinary, array, and aligned C++ allocation only
+for instrumentation and enables counting on the thread surrounding prepared
+`process` calls. The shipping target contains no allocation hook. The same
+test source runs against both the standalone neutral implementation and a
+consumer-supplied JUCE production implementation so realtime evidence covers
+the actual fixed effects chain rather than only its bypass facade.

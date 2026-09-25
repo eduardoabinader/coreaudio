@@ -249,6 +249,11 @@ procedure, and result. Assumptions are not facts.
   authorize a push, history rewrite, AHIO integration, P8I, or P8J.
 - Kuaru still owns `ProfileCollector`, all log/JSON/WAV output, requested product
   configuration, and product policy. The core remains a static neutral library.
+- After P8H, the user clarified that AHIO requirements are not yet closed and
+  Kuaru plus coreaudio are the current priority. No `EffectsChain` integration,
+  P8K stream-role implementation, P8I, or P8J work may begin in AHIO until the
+  user explicitly closes those requirements. A briefly started P8K worktree
+  experiment was fully removed; no AHIO code from it remains.
 
 ### Implemented
 
@@ -282,12 +287,21 @@ procedure, and result. Assumptions are not facts.
   36.33465/37.24585 ms for 2,000,000 block-7 calls (+2.51%, about 0.46 ns per
   call) and 31.55775/31.67775 ms for 100,000 block-512 calls (+0.38%, about
   1.20 ns per call). Both are inside the already reviewed 5% aggregate budget.
+- A test-local global allocation probe now counts ordinary, array and aligned
+  C++ allocations only on the thread executing `EffectsChain::process`.
+  Thirty-two prepared stereo blocks with the bounded metrics observer produced
+  zero allocations in both the JUCE-free neutral target and the production
+  JUCE chain linked from the rebuilt Kuaru consumer artifacts. The production
+  run enabled tremolo, filter, drive, chorus, reverb and output gain and passed
+  all ten lifecycle/processing tests. This closes the remaining REQ-N25
+  allocation-instrumentation evidence without adding instrumentation to the
+  shipping library or callback.
 - A desktop `demo` verification attempt exposed an existing product build-policy
   failure: Kuaru applies C++-only `-fvisibility-inlines-hidden` to mbedTLS C
   sources while that dependency uses `-Werror`. No out-of-scope build-policy
   change was made; the disabled `nullptr` branch is source-audited and the core
   path is measured independently.
-- P8H remains uncommitted by policy. The Kuaru gitlink cannot identify these
-  working-tree changes until the user commits the core and updates the gitlink;
-  the configured remote still requires publication of the authoritative
-  history.
+- The user subsequently committed P8H as
+  `396ce772a7ddb3117638504eee7733ef256d9ff6`; Kuaru commit `95d205d` pins that
+  exact core gitlink. Remote reachability was not reverified during this
+  closeout, and AHIO consumption remains explicitly unauthorized.

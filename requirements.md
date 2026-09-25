@@ -22,7 +22,7 @@ A build can support **Implemented**, but cannot by itself establish
 | ID | Requirement | Specified | Implemented | Verified | Phase / evidence |
 |---|---|---:|---:|---:|---|
 | REQ-N01 | Shared realtime audio lives in the independent `coreaudio` repository and contains cohesive audio processing, realtime observation, and deterministic test support—not general product utilities. | Yes | Yes | Yes | P8G core chain plus standalone/core and Kuaru golden verification |
-| REQ-N02 | Kuaru and AHIO consume an exact pinned revision of the same authoritative core; copies, translations, and product forks are prohibited. | Yes | Partial | No | P8G local Kuaru gitlink pins `3699b89`, but the remote does not yet advertise it; P8I AHIO pin remains |
+| REQ-N02 | Kuaru and AHIO consume an exact pinned revision of the same authoritative core; copies, translations, and product forks are prohibited. | Yes | Partial | No | Kuaru pins P8H commit `396ce772`; remote reachability was not reverified and P8I AHIO pin remains |
 | REQ-N03 | Public C++ uses the single namespace `gigante`; common types name their responsibility without repeating the owner name. | Yes | Yes | Yes | P8F public-header isolation build and review |
 | REQ-N04 | Controlled types use `UpperCamelCase`; functions, variables, members, and constants use `lowerCamelCase`; no controlled symbol begins with `_` or gains snake-case aliases. Externally imposed ABI names stay in adapters. | Yes | Yes | Yes | P8F naming review, strict build |
 | REQ-N05 | No new module, class, target, configuration, or controlled symbol uses `Sinu`. Shared names use neutral ownership; piano-only names remain Kuaru-owned and AHIO-only names remain Ahio-owned. Existing names migrate by ownership in reviewable phases. | Yes | Partial | Partial | P8F core audit passed; consumer migration remains P8G |
@@ -55,7 +55,7 @@ A build can support **Implemented**, but cannot by itself establish
 | REQ-N22 | The core adds no FIFO, whole-block accumulation, callback-size conversion, thread hop, or full-buffer copy merely for abstraction. Any unavoidable conversion has measured ownership, cost, and latency. | Yes | Yes | Yes | P8F non-owning synchronous PCM implementation and source audit |
 | REQ-N23 | The core reports algorithmic latency in samples. Bypass/no-look-ahead stages report zero; delay/tail and transport/device buffering remain distinct evidence. | Yes | Yes | Yes | P8G production and bypass report zero samples; no hidden adaptation |
 | REQ-N24 | Smoothing, delay lines, envelopes, filter/limiter memory, and deterministic noise state belong to the core. `prepare`/`reset` initialize them deterministically; live changes preserve current Kuaru smoothing until separately approved. | Yes | Yes | Yes | P8G state relocation and live-change bit-exact vectors at blocks 7/512 |
-| REQ-N25 | Non-finite samples, invalid coefficients, recovery resets, and safety activation follow explicit bounded policies. The callback records counters/state only; explanatory/persistent logs occur outside it. | Yes | Yes | Partial | P8G counters/recovery implemented; invalid golden and core tests pass; allocation instrumentation remains |
+| REQ-N25 | Non-finite samples, invalid coefficients, recovery resets, and safety activation follow explicit bounded policies. The callback records counters/state only; explanatory/persistent logs occur outside it. | Yes | Yes | Yes | P8G/P8H counters and invalid golden; allocation-instrumented neutral and JUCE production tests report zero allocations across 32 prepared blocks |
 | REQ-N26 | The core exposes neutral per-stage observation through an `EffectsStageObserver`-equivalent contract and depends on neither `ProfileCollector` nor AHIO metrics. | Yes | Yes | Yes | P8F observer callbacks/tests and dependency audit |
 | REQ-N27 | Kuaru adapts observation to `ProfileCollector`; AHIO adapts it to AHIO metrics/reports. A no-op observer changes neither processing behavior nor product conditionals in the core. | Yes | Partial | Partial | P8H Kuaru stage adapter/null disabled path and five-vector bit parity; P8I AHIO adapter remains |
 | REQ-N28 | Observation is preallocated/bounded and uses no owning `std::function`, allocating dispatch, formatting, or wall-clock conversion on the callback. Disabled observation has measured negligible overhead. | Yes | Yes | Yes | P8H fixed storage/raw-tick audit; 10-run release medians versus pre-P8H were +2.51% at block 7 and +0.38% at block 512, under the reviewed 5% budget |
@@ -90,6 +90,67 @@ of P8F–P8J and do not authorize implementation.
 | REQ-N44 | Grouped AHIO rendering resets carrier state from stream epoch and applies changes at identified presentation frames; Kuaru remains unaware of group/network clocks. | Yes | No | No | Deferred |
 | REQ-N45 | Acceptance measures path levels, CPU/callback budget by band count, algorithmic/physical latency, intelligibility, clipping/limiter activity, feedback risk, reset determinism, and USB/Wi-Fi stability per product. | Yes | No | No | Deferred |
 
+## Group O — Platform layer
+
+These requirements are the product-neutral part of AHIO Group O. They are separate
+from `giganteCore` and clarify REQ-N06; they do not change it. Status columns
+are tracked independently as for Group N.
+
+### O.1 — Ownership and scope
+
+| ID | Requirement | Specified | Implemented | Verified | Phase / evidence |
+|---|---|---:|---:|---:|---|
+| REQ-O01 | The platform layer shall live in the `coreaudio` repository as a separate target `gigantePlatform`, in the single namespace `gigante`, next to and independent of `giganteCore`. `giganteCore` shall never depend on it, which keeps REQ-N06 true for the core. Kuaru and AHIO shall consume the same pinned revision of both targets, with no copies or forks (REQ-N02). | Yes | No | No | Not started |
+| REQ-O02 | The platform layer shall contain no Kuaru or AHIO type and no encoder/decoder role, stream plan, transport, protocol, UI or DSP. Names follow REQ-N03 to REQ-N05: `UpperCamelCase` types, `lowerCamelCase` members, no leading underscore and no `Sinu` or `Ahio` in shared names. | Yes | No | No | Not started |
+| REQ-O03 | One concrete implementation per target platform (Android, iOS, macOS, Linux) shall be selected at link time, following the precedent of `SinuPlatform`. No public header and no caller shall contain a platform conditional (REQ-M12). An unsupported target platform shall fail at configure time with a message naming the platform. | Yes | No | No | Not started |
+| REQ-O04 | Moving the existing Kuaru pieces (`SinuPlatform`, `SinuHeadsetMonitor`, `SinuAudioFocus`, `SinuWakeLock`, `SinuForegroundService` and the shared `android_audio_runtime` sources) into the platform layer is a separate later phase with its own `go`, parity evidence and pinned-revision change. Until it is approved, Kuaru behavior shall not change. | Yes | No | No | Not started |
+
+### O.2 — JUCE as the only audio backend
+
+| ID | Requirement | Specified | Implemented | Verified | Phase / evidence |
+|---|---|---:|---:|---:|---|
+| REQ-O05 | JUCE (`AudioIODevice`, `AudioIODeviceType`, `AudioDeviceManager`) shall be the only audio streaming backend of AHIO and of the shared platform layer, on every platform. No AHIO code shall open streams through Oboe, OpenSL ES, AAudio, CoreAudio or ALSA directly, and no second device model shall be added. This supersedes the `AhioAudioDevice` wrapper role of REQ-L13 and the Oboe boundary of REQ-L16; JUCE is consumed through the single pinned installation (REQ-L15, GLC-GOV-06). | Yes | No | No | Not started |
+| REQ-O06 | Bluetooth (HFP/SCO, A2DP, LE Audio) is removed from AHIO scope. The related code, UI, `AhioTransport` and device entries shall be removed together, and requirement group C, the Bluetooth and LE Audio gates, P10 and REQ-L16 shall be marked superseded, never deleted or renumbered. Bluetooth results shall remain identified as historical evidence. | Yes | No | No | Not started |
+| REQ-O07 | Before the AHIO Oboe path is deleted, the JUCE Android path shall be measured on the Pixel 9 Pro and on the Samsung tablet against the recorded USB baseline: acoustic latency, xruns, and the granted sharing and performance mode as requested, applied and granted values. A regression against the baseline blocks the removal until it is explained and accepted. Equality shall not be assumed from the source code. | Yes | No | No | Not started |
+
+### O.3 — Facts and policy
+
+| ID | Requirement | Specified | Implemented | Verified | Phase / evidence |
+|---|---|---:|---:|---:|---|
+| REQ-O08 | The platform layer shall supply facts only: per direction the JUCE device name, the platform id where the platform has one, the bus, product name, channel counts and sample rates, plus change events and host facts. It shall make no selection decision. | Yes | No | No | Not started |
+| REQ-O09 | Endpoint eligibility and selection policy shall be shared C++ and declarative: for each role the required direction, the allowed buses and the minimum rate and channels. It shall behave identically on every platform and shall be testable with fake inventories and no hardware. Android Java or Kotlin shall contain no selection policy. | Yes | No | No | Not started |
+| REQ-O10 | Selection shall keep requested and effective values distinct and shall treat zero, one and several candidates explicitly. It shall never infer a choice or fall back silently, and it shall retain the reason for every rejected candidate. | Yes | No | No | Not started |
+| REQ-O11 | The bus shall be a bounded attribute of an endpoint (`BUILT_IN`, `USB`, `OTHER`, `UNKNOWN`), not a device subclass. `UNKNOWN` shall mean the platform could not tell, and policy shall treat it as ineligible unless the user selected that device explicitly. It replaces the Kotlin `AudioDeviceKind`, and a session's transport shall be derived from its endpoints and link, never stored as a second copy. | Yes | No | No | Not started |
+| REQ-O12 | Direction shall be a property of an endpoint. Where JUCE presents one duplex device, the two directional endpoints shall keep separate identities, and a session shall freeze both for its lifetime (REQ-L55). | Yes | No | No | Not started |
+| REQ-O13 | JUCE shall be used first: its enumeration everywhere, and its change notification where it exists (CoreAudio, iOS). Where JUCE lacks a fact or a notification (bus and hot-plug on Android and Linux), a platform fact source or a bounded rescan on a non-realtime thread shall supply it. Platform code shall be added only for a requirement that needs it, and the polling interval and cost shall be bounded and recorded. | Yes | No | No | Not started |
+
+### O.4 — Monitoring
+
+| ID | Requirement | Specified | Implemented | Verified | Phase / evidence |
+|---|---|---:|---:|---:|---|
+| REQ-O14 | Monitoring shall belong to the platform fact source and not to device subclasses. Change events shall arrive on a documented non-realtime thread. Loss or substitution of an effective endpoint shall be reported within a bounded time, with evidence retained, for every bus (generalizing REQ-L12). | Yes | No | No | Not started |
+| REQ-O15 | Starting and stopping a monitor shall be idempotent, no callback shall be delivered after stop returns, and teardown shall be safe during an in-flight event. | Yes | No | No | Not started |
+
+### O.5 — Platform fact sources and session preparation
+
+| ID | Requirement | Specified | Implemented | Verified | Phase / evidence |
+|---|---|---:|---:|---:|---|
+| REQ-O16 | Android: the inventory and monitor shall be C++ over JNI to `AudioManager`, following `SinuHeadsetMonitor_android.cpp`. Java or Kotlin shall be limited to the Android components that require it (foreground service, manifest, permissions) and to the small forwarding shim for the abstract `AudioDeviceCallback`. The current Kotlin resolver and inventory shall be ported with their tests, and shall be removed only after the same cases pass in the shared policy. | Yes | No | No | Not started |
+| REQ-O17 | iOS: the inventory and monitor shall use `AVAudioSession` route ports and route-change notifications through Objective-C++, and the session category and mode shall be set explicitly and reported. | Yes | No | No | Not started |
+| REQ-O18 | macOS: the bus shall come from the CoreAudio transport-type property, and change events from JUCE's own device-list notification. | Yes | No | No | Not started |
+| REQ-O19 | Linux: the bus shall come from ALSA card and sysfs information. Hot-plug shall use udev, inotify or bounded polling, the chosen mechanism recorded with its evidence. It shall run headless, with no display or session bus. | Yes | No | No | Not started |
+| REQ-O20 | Session preparation shall be one interface with a platform implementation each: Android foreground service, wake and multicast locks and audio focus; iOS audio session and background audio; macOS App Nap prevention; Linux scheduling policy. It hosts the platform levers of REQ-M14, REQ-M111 and REQ-M122, and shall report requested, applied and observed results. | Yes | No | No | Not started |
+| REQ-O21 | Host facts (logical cores, RAM, architecture, platform name, build fingerprint and the outcome of the realtime scheduling request) shall be provided by the platform layer and recorded with every measurement (REQ-M13). | Yes | No | No | Not started |
+
+### O.6 — Dependencies and verification
+
+| ID | Requirement | Specified | Implemented | Verified | Phase / evidence |
+|---|---|---:|---:|---:|---|
+| REQ-O22 | The platform target shall not pull in the DSP. It shall consume JUCE through the same consumer-provided target as the core (GLC-GOV-06) and shall build with the core's warning level and `-Werror`. | Yes | No | No | Not started |
+| REQ-O23 | Policy tests with a fake fact source shall cover zero, one and several candidates, loss, substitution, duplicates, an unknown bus, a direction mismatch and the rejection reasons. They shall run on a desktop with no device. | Yes | No | No | Not started |
+| REQ-O24 | Each platform fact source shall pass one shared contract test for its fields. Verification shall be tracked per platform: Android on a device including a physical detach and attach, macOS and Linux locally, and iOS only when hardware is available. A result on one platform shall not be reported as verified for another. | Yes | No | No | Not started |
+
+
 ## Repository governance requirements
 
 These IDs cover repository practice not owned by the product-facing Group N
@@ -111,8 +172,8 @@ contract.
 |---|---|---|---|---|
 | G0 | Establish the core repository as Group N authority and import its governance/architecture context | N01–N45; GOV-01–04 | Required documents, source audit, consistency checks, `git diff --check` | Complete 2026-09-24 |
 | P8F | Build skeleton plus deterministic Kuaru characterization; no production DSP moves | N01–N08, N21–N23, N26, N31, N33; GOV-01–07 | Configure/build/CTest, header isolation, dependency decision, fixture schema, reviewed pre-migration vectors | Complete 2026-09-24 |
-| P8G | Extract fixed-order chain and migrate Kuaru alone | N09–N11, N15, N17–N25, N32–N33; GOV-01–07 | Bit-exact/tolerance parity, lifecycle/realtime suite, stage-budget comparison | Implemented; local gitlink, five-vector parity, lifecycle suite, and controlled budget verified; remote publication of the pinned commit remains |
-| P8H | Neutral observation plus Kuaru `ProfileCollector` adapter | N26–N30, N32–N33; GOV-01–07 | Metrics parity and disabled-observer overhead | Implemented and locally verified 2026-09-25; user commit/gitlink and remote publication pending |
+| P8G | Extract fixed-order chain and migrate Kuaru alone | N09–N11, N15, N17–N25, N32–N33; GOV-01–07 | Bit-exact/tolerance parity, lifecycle/realtime suite, stage-budget comparison | Complete locally: exact Kuaru gitlink, five-vector parity, lifecycle suite, controlled budget, and zero-allocation production test verified; remote reachability not reverified |
+| P8H | Neutral observation plus Kuaru `ProfileCollector` adapter | N26–N30, N32–N33; GOV-01–07 | Metrics parity and disabled-observer overhead | Complete locally 2026-09-25; committed as `396ce772`, exactly pinned by Kuaru, remote reachability not reverified |
 | P8K | AHIO-owned stream roles and local identity plan; no core implementation ownership | L32–L54 in AHIO | AHIO evidence; prerequisite for P8I | Not started in AHIO |
 | P8I | AHIO consumes pinned verified core in USB neutral bypass | N02, N06–N08, N13–N16, N19–N23, N27, N29, N34 | AHIO conservation/buffering/xrun/CPU/physical-latency comparison | Not started in AHIO |
 | P8J | AHIO enables independently calibrated effects incrementally | N10–N14, N17–N20, N24–N25, N35 | AHIO per-effect quality/stability/latency evidence | Not started in AHIO |

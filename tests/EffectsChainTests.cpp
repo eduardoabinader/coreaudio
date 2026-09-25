@@ -6,11 +6,135 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <iostream>
 #include <limits>
+#include <new>
 #include <string>
 #include <vector>
+#if defined(_MSC_VER)
+#include <malloc.h>
+#endif
+
+namespace allocationProbe
+{
+thread_local bool tracking = false;
+thread_local std::size_t allocationCount = 0;
+
+void record() noexcept
+{
+    if (tracking)
+        ++allocationCount;
+}
+
+#if defined(_MSC_VER)
+__declspec(noinline)
+#elif defined(__GNUC__) || defined(__clang__)
+__attribute__((noinline))
+#endif
+void releaseMemory(void* memory) noexcept
+{
+    std::free(memory);
+}
+
+void* allocateAligned(std::size_t alignment, std::size_t size) noexcept
+{
+#if defined(_MSC_VER)
+    return _aligned_malloc(size, alignment);
+#else
+    const std::size_t roundedSize =
+        ((size + alignment - 1U) / alignment) * alignment;
+    return std::aligned_alloc(alignment, roundedSize);
+#endif
+}
+
+#if defined(_MSC_VER)
+__declspec(noinline)
+#elif defined(__GNUC__) || defined(__clang__)
+__attribute__((noinline))
+#endif
+void releaseAlignedMemory(void* memory) noexcept
+{
+#if defined(_MSC_VER)
+    _aligned_free(memory);
+#else
+    std::free(memory);
+#endif
+}
+}
+
+void* operator new(std::size_t size)
+{
+    allocationProbe::record();
+    if (void* const memory = std::malloc(size))
+        return memory;
+    throw std::bad_alloc();
+}
+
+void* operator new[](std::size_t size)
+{
+    return ::operator new(size);
+}
+
+void operator delete(void* memory) noexcept
+{
+    allocationProbe::releaseMemory(memory);
+}
+
+void operator delete[](void* memory) noexcept
+{
+    ::operator delete(memory);
+}
+
+void operator delete(void* memory, std::size_t) noexcept
+{
+    allocationProbe::releaseMemory(memory);
+}
+
+void operator delete[](void* memory, std::size_t) noexcept
+{
+    ::operator delete(memory);
+}
+
+#if defined(__cpp_aligned_new)
+void* operator new(std::size_t size, std::align_val_t alignment)
+{
+    allocationProbe::record();
+    const std::size_t alignmentValue = static_cast<std::size_t>(alignment);
+    if (void* const memory = allocationProbe::allocateAligned(alignmentValue, size))
+        return memory;
+    throw std::bad_alloc();
+}
+
+void* operator new[](std::size_t size, std::align_val_t alignment)
+{
+    return ::operator new(size, alignment);
+}
+
+void operator delete(void* memory, std::align_val_t) noexcept
+{
+    allocationProbe::releaseAlignedMemory(memory);
+}
+
+void operator delete[](void* memory, std::align_val_t alignment) noexcept
+{
+    ::operator delete(memory, alignment);
+}
+
+void operator delete(void* memory, std::size_t, std::align_val_t) noexcept
+{
+    allocationProbe::releaseAlignedMemory(memory);
+}
+
+void operator delete[](
+    void* memory,
+    std::size_t,
+    std::align_val_t alignment) noexcept
+{
+    ::operator delete(memory, alignment);
+}
+#endif
 
 namespace
 {
@@ -186,8 +310,12 @@ void testProcessValidationAndExplicitUnimplementedMode()
 
     context.mode = gigante::ProcessingMode::effects;
     report = chain.process(viewOf(shortSamples), parameters, context);
+#if defined(GIGANTE_TESTS_WITH_JUCE_DSP)
+    REQUIRE(report.status.ok());
+#else
     REQUIRE(report.status.code == gigante::ErrorCode::effectsNotImplemented);
     requireBitExact(std::vector<float>(8, 0.25F), shortSamples);
+#endif
 }
 
 void testBypassIsBitExactForFiniteSamplesAndVariableBlocks()
@@ -397,6 +525,50 @@ void testRealtimeMetricsCoverEveryStage()
     }
 }
 
+void testPreparedProcessPerformsNoHeapAllocation()
+{
+    gigante::EffectsChain chain;
+    gigante::EffectsParameters parameters;
+    parameters.tremoloDepth = 0.4F;
+    parameters.tremoloRateHz = 3.0F;
+    parameters.filterFrequencyHz = 3200.0F;
+    parameters.filterResonance = 0.7F;
+    parameters.driveAmount = 0.25F;
+    parameters.chorusMix = 0.3F;
+    parameters.reverbMix = 0.2F;
+    parameters.outputGainDb = -3.0F;
+    REQUIRE(chain.prepare({ 48000.0, 2, 512 }, parameters).ok());
+
+    FakeTickClock clock;
+    gigante::RealtimeMetricsObserver observer(clock, { 48000, 0.0 });
+    std::vector<float> left(512, 0.125F);
+    std::vector<float> right(512, -0.125F);
+    const auto buffer = viewOf(left, &right);
+    gigante::ProcessingContext context;
+#if defined(GIGANTE_TESTS_WITH_JUCE_DSP)
+    context.mode = gigante::ProcessingMode::effects;
+#endif
+
+    // Warm any process-independent runtime paths before observing the callback.
+    REQUIRE(chain.process(buffer, parameters, context, &observer).status.ok());
+    observer.snapshot();
+
+    allocationProbe::allocationCount = 0;
+    allocationProbe::tracking = true;
+    for (int block = 0; block < 32; ++block)
+    {
+        context.firstSamplePosition = static_cast<std::uint64_t>(block + 1) * 512U;
+        const auto report = chain.process(buffer, parameters, context, &observer);
+        if (!report.status.ok())
+        {
+            allocationProbe::tracking = false;
+            REQUIRE(report.status.ok());
+        }
+    }
+    allocationProbe::tracking = false;
+    REQUIRE(allocationProbe::allocationCount == 0);
+}
+
 using TestFunction = void (*)();
 
 struct TestCase
@@ -409,7 +581,7 @@ struct TestCase
 
 int main()
 {
-    const std::array<TestCase, 9> tests {{
+    const std::array<TestCase, 10> tests {{
         { "lifecycle and configuration", testLifecycleAndConfiguration },
         { "invalid prepare", testInvalidPrepareIsSpecificAndRecoverable },
         { "process validation", testProcessValidationAndExplicitUnimplementedMode },
@@ -418,7 +590,8 @@ int main()
         { "reconfiguration", testReconfigurationChangesEffectiveContract },
         { "deterministic realtime metrics", testRealtimeMetricsAreDeterministicAndBounded },
         { "metrics recovery", testRealtimeMetricsCountRecoveryAndFiniteLevels },
-        { "metrics stage coverage", testRealtimeMetricsCoverEveryStage }
+        { "metrics stage coverage", testRealtimeMetricsCoverEveryStage },
+        { "prepared process allocation", testPreparedProcessPerformsNoHeapAllocation }
     }};
 
     int failures = 0;
