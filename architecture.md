@@ -54,6 +54,13 @@ revision, and a caller-supplied realtime-scheduling outcome. Requested and
 observed scheduling policy/priority remain distinct. The facts source reports
 that outcome; it does not request scheduling or select policy.
 
+Operating-system-family mechanics are composed rather than copied. Linux and
+Android share `PosixHostFactsSupport` for `sysconf`, `uname`, revision, and
+scheduling fields; Android overrides only the build fingerprint with
+`ro.build.fingerprint`. macOS and iOS share `AppleHostFactsSupport` for their
+`sysctl` reads. Each final platform file retains only its platform kind and
+factory binding through the common function-backed source adapter.
+
 Potentially unavailable host values use `std::optional`. Formatting renders
 them as `unavailable`; it never substitutes a plausible core count, memory
 size, architecture, or fingerprint. Host reads and string formatting are

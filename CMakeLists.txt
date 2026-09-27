@@ -53,16 +53,36 @@ target_sources(
 )
 
 if(ANDROID)
-    target_sources(gigantePlatform PRIVATE src/AndroidHostFacts.cpp)
+    target_sources(
+        gigantePlatform
+        PRIVATE
+            src/AndroidHostFacts.cpp
+            src/PosixHostFactsSupport.cpp
+    )
     set(GIGANTE_PLATFORM_NAME "Android")
 elseif(CMAKE_SYSTEM_NAME STREQUAL "iOS")
-    target_sources(gigantePlatform PRIVATE src/IosHostFacts.cpp)
+    target_sources(
+        gigantePlatform
+        PRIVATE
+            src/AppleHostFactsSupport.cpp
+            src/IosHostFacts.cpp
+    )
     set(GIGANTE_PLATFORM_NAME "iOS")
 elseif(APPLE)
-    target_sources(gigantePlatform PRIVATE src/MacOsHostFacts.cpp)
+    target_sources(
+        gigantePlatform
+        PRIVATE
+            src/AppleHostFactsSupport.cpp
+            src/MacOsHostFacts.cpp
+    )
     set(GIGANTE_PLATFORM_NAME "macOS")
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    target_sources(gigantePlatform PRIVATE src/LinuxHostFacts.cpp)
+    target_sources(
+        gigantePlatform
+        PRIVATE
+            src/LinuxHostFacts.cpp
+            src/PosixHostFactsSupport.cpp
+    )
     set(GIGANTE_PLATFORM_NAME "Linux")
 else()
     message(FATAL_ERROR

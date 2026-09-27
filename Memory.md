@@ -417,6 +417,25 @@ history being reachable from the remote.
   consumer session freeze, transport derivation, Kuaru adoption, or any AHIO
   change. Those remain separately gated phases.
 
+## 2026-09-27 — P11B/P11C platform duplication closeout
+
+- Review found two internal copies: Linux/Android repeated core-count, memory,
+  and `uname` reads; macOS/iOS repeated all `sysctl` helpers and fact assembly.
+- Added internal composition only: `PosixHostFactsSupport` owns the common
+  Linux/Android mechanics, `AppleHostFactsSupport` owns the common macOS/iOS
+  mechanics, and `FunctionHostFactsSource` owns the repeated adapter lifecycle.
+- Final platform files now contain only actual differences. Android replaces
+  the POSIX kernel fingerprint with `ro.build.fingerprint`; Linux keeps the
+  kernel release/version; macOS and iOS select distinct `PlatformKind` values.
+- The temporary duplication between these neutral facts and Kuaru's existing
+  `SinuPlatform` remains intentional until P11H. No Kuaru or AHIO source was
+  migrated or modified by this closeout.
+- Strict Linux Debug and Release CTest passed 5/5 in each configuration;
+  Android arm64 Release cross-built with NDK 29.0.13599879 and warnings as
+  errors; and the isolated Kuaru-consumer `gigantePlatform` target rebuilt
+  through its pinned JUCE interface. Apple remains unverified without an
+  available Apple toolchain.
+
 ## 2026-09-25 - Group P logger and shared build policy specified (no code)
 
 REQ-P01 to REQ-P15 added to `requirements.md`, phases P12A to P12E, and a planned-layers section plus ADR-008
