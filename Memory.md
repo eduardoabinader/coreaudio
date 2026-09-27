@@ -471,3 +471,27 @@ REQ-P16 added: spdlog is the planned engine behind `gigante::Logger`, gated by t
   facts were not exercised at runtime because no ADB device was connected;
   Apple remains unverified. The exact post-commit Kuaru gitlink is pending.
 - No AHIO change belongs to this P11H step.
+
+## 2026-09-27 — P11H neutral endpoint-monitor lifecycle
+
+- Added `EndpointMonitor`, composed from an injected `EndpointFactSource` and
+  `EndpointChangeSource`. Platform signals contain no selection or partial
+  device policy; every signal triggers a complete generation-bearing inventory
+  snapshot on the source's documented non-realtime thread.
+- Requested and effective running state are distinct in the start result.
+  Empty callbacks, unavailable sources, denied permission and generic source
+  failure have stable statuses and retain diagnostic context. A fact-source
+  exception becomes a `snapshotFailed` event rather than an empty inventory.
+- Lifecycle is deterministic: start publishes the initial snapshot; repeated
+  start neither registers twice nor replaces the callback; repeated stop is
+  harmless; stop rejects new delivery, unregisters, and waits for an in-flight
+  callback; callback-triggered teardown does not wait for its own stack frame;
+  stale signals after stop or destruction are ignored safely.
+- The hardware-free suite covers initial/change snapshots, generations,
+  repeated lifecycle, specific failures, in-flight teardown, late events,
+  destructor cleanup and stable names. Standalone Debug and Release CTest pass
+  6/6 with strict warnings; the monitor test also passes under ThreadSanitizer.
+  Android arm64 `gigantePlatform` cross-builds with NDK 29 and `-Werror`.
+- This is REQ-O15 and a contract slice of REQ-O14 only. No Android JNI
+  inventory/change source, Kuaru headset migration, AHIO change, device test or
+  product policy was added. Those remain separately gated.

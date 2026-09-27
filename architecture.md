@@ -88,22 +88,36 @@ When a requested endpoint disappears, another eligible endpoint is marked
 `notRequested` rather than silently substituted. Non-finite or negative policy
 rates terminate as `invalidPolicy` before endpoint evaluation.
 
-The fake source used by tests replaces complete snapshots and advances their
-generation. It models discovery changes without defining monitoring threads or
-callbacks; those belong to P11E/P11F/P11G under REQ-O13 to REQ-O19.
+The fake fact source used by policy tests replaces complete snapshots and
+advances their generation. `EndpointMonitor` composes an `EndpointFactSource`
+with an injected `EndpointChangeSource`: a change signal carries no partial
+device payload, and causes a new complete snapshot to be read and published.
+Registration failures preserve their specific status and context; snapshot
+failures are observable events and never masquerade as empty inventories.
+
+The monitor owns only neutral lifecycle and delivery. `start` publishes an
+initial snapshot, repeated `start` retains the original callback, and repeated
+`stop` is harmless. Stop first closes delivery, unregisters the source, then
+waits for callbacks already in flight. A weak internal state token makes a late
+platform signal harmless even after destruction. When the callback itself
+initiates teardown, stop waits for every *other* callback but never waits for
+its own stack frame. All source reads and callbacks are explicitly
+non-realtime. Platform inventory readers and change signals still belong to
+P11E/P11F/P11G under REQ-O13 to REQ-O19.
 
 ## Platform, logging and build-policy layers
 
 Group O and Group P extend the structure without changing `giganteCore`.
-Host facts (P11B) and the neutral endpoint value/policy layer (P11C) are
-present. Platform inventories, monitoring, session preparation and logging
-remain planned.
+Host facts (P11B), the neutral endpoint value/policy layer (P11C), and the
+endpoint-monitor lifecycle are present. Platform inventories/change sources,
+session preparation and logging remain planned.
 
 ```text
 giganteCore      JUCE-free DSP; depends on nothing below
 gigantePlatform  HostFactsSource, AudioEndpoint, AudioBus, EndpointInventory,
-                 EndpointPolicy (present); EndpointMonitor and
-                 SessionPreparation (planned)
+                 EndpointPolicy, EndpointMonitor and EndpointChangeSource
+                 (present); platform endpoint sources and SessionPreparation
+                 (planned)
 giganteLog       Logger with levels, per-platform backends, build-policy gating;
                  BuildPolicy later (planned)
 ```

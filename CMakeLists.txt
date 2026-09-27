@@ -38,8 +38,10 @@ target_sources(
 target_sources(
     gigantePlatform
     PRIVATE
+        src/EndpointMonitor.cpp
         src/EndpointPolicy.cpp
         src/HostFacts.cpp
+        include/gigante/EndpointMonitor.h
         include/gigante/EndpointPolicy.h
         include/gigante/HostFacts.h
 )

@@ -28,9 +28,11 @@ host-facts step is implemented: Kuaru consumes the shared target through an
 explicit product adapter, and its old platform singleton is removed. Android
 runtime fact parity, Apple implementations, the exact post-commit gitlink, and
 all later mechanism candidates remain unverified or separately gated.
-P11C adds only the neutral endpoint model and declarative selection policy with
-fake-inventory tests. It does not authorize a platform inventory backend,
-monitoring, consumer migration, or AHIO changes.
+P11C added only the neutral endpoint model and declarative selection policy
+with fake-inventory tests. The later authorized P11H core-only step implements
+the neutral `EndpointMonitor` lifecycle required by REQ-O15. It does not
+implement an Android JNI source, migrate Kuaru's headset monitor, or authorize
+AHIO adoption; those remain separate steps requiring another `go`.
 
 ## Phase discipline
 
