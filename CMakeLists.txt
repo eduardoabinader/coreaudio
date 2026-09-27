@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.23)
+cmake_minimum_required(VERSION 3.22)
 
 project(
     GiganteLabsCore
@@ -28,15 +28,11 @@ target_sources(
     PRIVATE
         src/EffectsChain.cpp
         src/RealtimeMetrics.cpp
-    PUBLIC
-        FILE_SET HEADERS
-        BASE_DIRS include
-        FILES
-            include/gigante/AudioBufferView.h
-            include/gigante/EffectsChain.h
-            include/gigante/EffectsStageObserver.h
-            include/gigante/RealtimeMetrics.h
-            include/gigante/Revision.h
+        include/gigante/AudioBufferView.h
+        include/gigante/EffectsChain.h
+        include/gigante/EffectsStageObserver.h
+        include/gigante/RealtimeMetrics.h
+        include/gigante/Revision.h
 )
 
 target_sources(
@@ -44,12 +40,19 @@ target_sources(
     PRIVATE
         src/EndpointPolicy.cpp
         src/HostFacts.cpp
+        include/gigante/EndpointPolicy.h
+        include/gigante/HostFacts.h
+)
+
+target_include_directories(
+    giganteCore
     PUBLIC
-        FILE_SET HEADERS
-        BASE_DIRS include
-        FILES
-            include/gigante/EndpointPolicy.h
-            include/gigante/HostFacts.h
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+)
+target_include_directories(
+    gigantePlatform
+    PUBLIC
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
 )
 
 if(ANDROID)

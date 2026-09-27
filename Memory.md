@@ -451,3 +451,23 @@ realtime API in v1. The build policy move is limited to the product-neutral part
 audit. Kuaru adoption is REQ-AL01 to AL04 in `memory/sinukaru_requirements.md`. Nothing implemented or verified.
 
 REQ-P16 added: spdlog is the planned engine behind `gigante::Logger`, gated by the P12B evaluation (store size, `os_log` sink, pin, realtime reachability, license). Not measured.
+
+## 2026-09-27 — P11H Kuaru host-facts adoption
+
+- Kuaru removed its platform singleton and consumes `gigante::platform`
+  through an explicit product-owned adapter. The shared target remains free of
+  Kuaru types and `giganteCore` remains independent from it.
+- The Kuaru source revision is deliberately substituted only while formatting
+  the product diagnostic; `HostFacts::sourceRevision` continues to identify
+  the Core Audio build. Kuaru's `ProfileCollector` receives the already
+  formatted string before callbacks begin.
+- Kuaru's Android screen-awake JNI diagnostic stayed product-owned because it
+  calls Kuaru `MainActivity`. Headset monitoring, audio focus, wake lock,
+  foreground service and `android_audio_runtime` were not migrated.
+- Core Audio now supports the consumers' CMake 3.22 baseline without the
+  3.23-only `FILE_SET HEADERS`; public includes remain target-scoped.
+- Strict standalone Debug and Release CTest passed 5/5. The full Kuaru Linux
+  desktop build and Android store APK build/verification passed. Android host
+  facts were not exercised at runtime because no ADB device was connected;
+  Apple remains unverified. The exact post-commit Kuaru gitlink is pending.
+- No AHIO change belongs to this P11H step.

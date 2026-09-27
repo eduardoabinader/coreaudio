@@ -23,9 +23,11 @@ On 2026-09-25 the user further clarified that AHIO requirements are not closed:
 until the user explicitly says they are closed, `go` applies only to
 Kuaru/coreaudio work and must not start an AHIO stream or DSP integration phase.
 P11B is implemented in the core repository: `gigantePlatform` and host facts
-exist, with Linux runtime and Android cross-build evidence. Kuaru migration is
-still P11H and requires a separate `go`; Apple implementations are not verified
-without their toolchains.
+exist, with Linux runtime and Android cross-build evidence. The P11H Kuaru
+host-facts step is implemented: Kuaru consumes the shared target through an
+explicit product adapter, and its old platform singleton is removed. Android
+runtime fact parity, Apple implementations, the exact post-commit gitlink, and
+all later mechanism candidates remain unverified or separately gated.
 P11C adds only the neutral endpoint model and declarative selection policy with
 fake-inventory tests. It does not authorize a platform inventory backend,
 monitoring, consumer migration, or AHIO changes.
