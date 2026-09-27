@@ -8,7 +8,7 @@
 class FakeEndpointFactSource final : public gigante::EndpointFactSource
 {
 public:
-    void replace(std::vector<gigante::AudioEndpointFacts> endpoints)
+    void replace(std::vector<gigante::AudioEndpoint> endpoints)
     {
         ++inventory.generation;
         inventory.endpoints = std::move(endpoints);

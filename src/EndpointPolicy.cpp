@@ -12,12 +12,12 @@ namespace gigante
 namespace
 {
 
-bool containsBus(const std::vector<EndpointBus>& buses, const EndpointBus bus)
+bool containsBus(const std::vector<AudioBus>& buses, const AudioBus bus)
 {
     return std::find(buses.begin(), buses.end(), bus) != buses.end();
 }
 
-bool supportsMinimumSampleRate(const AudioEndpointFacts& endpoint,
+bool supportsMinimumSampleRate(const AudioEndpoint& endpoint,
                                const double minimumSampleRate)
 {
     return std::any_of(
@@ -96,7 +96,7 @@ EndpointSelectionResult evaluateEndpointSelection(
         if (endpoint.direction != policy.requiredDirection)
             reject(decision, EndpointRejectionReason::directionMismatch);
 
-        if (endpoint.bus == EndpointBus::unknown)
+        if (endpoint.bus == AudioBus::unknown)
         {
             if (!explicitlyRequested)
             {
@@ -175,17 +175,17 @@ const char* endpointDirectionName(const EndpointDirection direction) noexcept
     return "unknown";
 }
 
-const char* endpointBusName(const EndpointBus bus) noexcept
+const char* audioBusName(const AudioBus bus) noexcept
 {
     switch (bus)
     {
-        case EndpointBus::builtIn:
+        case AudioBus::builtIn:
             return "builtIn";
-        case EndpointBus::usb:
+        case AudioBus::usb:
             return "usb";
-        case EndpointBus::other:
+        case AudioBus::other:
             return "other";
-        case EndpointBus::unknown:
+        case AudioBus::unknown:
             return "unknown";
     }
     return "unknown";

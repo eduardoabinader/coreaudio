@@ -10,7 +10,7 @@ HostFacts readMacOsHostFacts(
     const RealtimeSchedulingOutcome& realtimeScheduling)
 {
     return platformDetail::readAppleHostFacts(
-        PlatformKind::macOsHost, realtimeScheduling);
+        "macOS", realtimeScheduling);
 }
 
 } // namespace

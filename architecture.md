@@ -58,7 +58,7 @@ Operating-system-family mechanics are composed rather than copied. Linux and
 Android share `PosixHostFactsSupport` for `sysconf`, `uname`, revision, and
 scheduling fields; Android overrides only the build fingerprint with
 `ro.build.fingerprint`. macOS and iOS share `AppleHostFactsSupport` for their
-`sysctl` reads. Each final platform file retains only its platform kind and
+`sysctl` reads. Each final platform file retains only its platform identity and
 factory binding through the common function-backed source adapter.
 
 Potentially unavailable host values use `std::optional`. Formatting renders
@@ -92,16 +92,18 @@ The fake source used by tests replaces complete snapshots and advances their
 generation. It models discovery changes without defining monitoring threads or
 callbacks; those belong to P11E/P11F/P11G under REQ-O13 to REQ-O19.
 
-## Planned endpoint, logging and build-policy layers
+## Platform, logging and build-policy layers
 
-Group O and Group P (2026-09-25) extend the structure without changing the core.
-Only host facts (P11B) exist in the working tree; the rest is specified only.
+Group O and Group P extend the structure without changing `giganteCore`.
+Host facts (P11B) and the neutral endpoint value/policy layer (P11C) are
+present. Platform inventories, monitoring, session preparation and logging
+remain planned.
 
 ```text
 giganteCore      JUCE-free DSP; depends on nothing below
-gigantePlatform  HostFactsSource (present); EndpointInventory, EndpointMonitor,
-                 SessionPreparation (planned); AudioEndpoint, AudioBus,
-                 EndpointPolicy (planned, shared declarative C++)
+gigantePlatform  HostFactsSource, AudioEndpoint, AudioBus, EndpointInventory,
+                 EndpointPolicy (present); EndpointMonitor and
+                 SessionPreparation (planned)
 giganteLog       Logger with levels, per-platform backends, build-policy gating;
                  BuildPolicy later (planned)
 ```
@@ -219,8 +221,9 @@ never acquire hardware or parse product configuration.
 ### ADR-001 — Independent neutral core
 
 Status: Accepted; P8G/P8H Kuaru integration, controlled render-budget evidence,
-and the current exact consumer gitlink
-`b39d375d2766920485175fd3cd2e420005e62ce3` are verified locally. Remote
+and the Kuaru gitlink recorded at `ec8128820fbe0ae36dff12d067578bb3ad5513e5`
+are verified locally. The checked-out core is ahead during the current phase,
+so its later commit still requires an exact Kuaru gitlink update. Remote
 reachability was not reverified; AHIO adoption remains P8I.
 
 The library is independently versioned and consumed in one direction by Kuaru
@@ -239,7 +242,7 @@ Status: Accepted; implemented for bypass and production processing. The only
 whole-block copy is the preallocated bell-filter crossfade scratch already
 present in Kuaru; it adds no latency, allocation, FIFO, or thread hop.
 
-### ADR-004 — Explicit platform-facts ownership
+### ADR-009 — Explicit platform-facts ownership
 
 Status: Accepted and implemented in P11B; verified on Linux and compile-checked
 for Android arm64. macOS and iOS remain unverified.
@@ -248,7 +251,7 @@ Platform selection happens once in CMake and produces an explicitly owned
 facts source. Missing facts remain unavailable, scheduling outcome is injected,
 and the platform layer makes no device or scheduling-policy selection.
 
-### ADR-005 — Selection requires an explicit endpoint identity
+### ADR-010 — Selection requires an explicit endpoint identity
 
 Status: Accepted and verified in P11C.
 
@@ -311,7 +314,8 @@ the actual fixed effects chain rather than only its bypass facade.
 
 ### ADR-008 — Endpoint policy and logger as separate shared layers
 
-Status: Proposed 2026-09-25 (requirements only).
+Status: Accepted. The endpoint value/policy portion is implemented and verified
+in P11C; the logger portion remains proposed for P12B.
 
 JUCE remains the only audio backend. The platform layer supplies facts JUCE
 lacks (bus, id, hot-plug on Android and Linux); a shared declarative policy

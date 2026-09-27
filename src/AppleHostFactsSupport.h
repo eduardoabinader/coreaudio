@@ -6,7 +6,7 @@ namespace gigante::platformDetail
 {
 
 [[nodiscard]] HostFacts readAppleHostFacts(
-    PlatformKind platform,
+    const char* platformName,
     const RealtimeSchedulingOutcome& realtimeScheduling);
 
 } // namespace gigante::platformDetail

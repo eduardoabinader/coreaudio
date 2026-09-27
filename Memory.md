@@ -426,7 +426,13 @@ history being reachable from the remote.
   mechanics, and `FunctionHostFactsSource` owns the repeated adapter lifecycle.
 - Final platform files now contain only actual differences. Android replaces
   the POSIX kernel fingerprint with `ro.build.fingerprint`; Linux keeps the
-  kernel release/version; macOS and iOS select distinct `PlatformKind` values.
+  kernel release/version; macOS and iOS select distinct platform names.
+- The user clarified that `gigantePlatform` is the shared target that receives
+  Kuaru's current `SinuPlatform` responsibilities, not the name of a public
+  platform-identity enum. The unnecessary enum was removed; `HostFacts` keeps
+  the required `platformName` fact.
+- P11C public names now match the shared contract: `AudioEndpoint` and
+  `AudioBus` replace the locally invented endpoint-facts and bus names.
 - The temporary duplication between these neutral facts and Kuaru's existing
   `SinuPlatform` remains intentional until P11H. No Kuaru or AHIO source was
   migrated or modified by this closeout.

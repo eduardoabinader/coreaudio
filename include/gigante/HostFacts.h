@@ -8,15 +8,6 @@
 namespace gigante
 {
 
-enum class PlatformKind
-{
-    unknownHost,
-    androidHost,
-    iosHost,
-    linuxHost,
-    macOsHost
-};
-
 enum class RealtimeSchedulingState
 {
     notRequested,
@@ -37,7 +28,6 @@ struct RealtimeSchedulingOutcome
 
 struct HostFacts
 {
-    PlatformKind platform{PlatformKind::unknownHost};
     std::string platformName;
     std::optional<std::uint32_t> logicalCoreCount;
     std::optional<std::uint64_t> physicalMemoryBytes;
@@ -58,7 +48,6 @@ public:
 
 [[nodiscard]] std::unique_ptr<HostFactsSource> createHostFactsSource();
 [[nodiscard]] std::string formatHostFacts(const HostFacts& facts);
-[[nodiscard]] const char* platformKindName(PlatformKind platform) noexcept;
 [[nodiscard]] const char* realtimeSchedulingStateName(
     RealtimeSchedulingState state) noexcept;
 

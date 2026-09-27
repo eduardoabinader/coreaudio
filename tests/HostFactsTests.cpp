@@ -34,8 +34,6 @@ void testCurrentPlatformFacts()
         return;
 
     const auto facts = source->read(scheduling);
-    expect(facts.platformName == gigante::platformKindName(facts.platform),
-           "platform enum and name must agree");
     expect(facts.platformName == GIGANTE_EXPECTED_PLATFORM_NAME,
            "CMake must link the expected concrete platform source");
     expect(facts.logicalCoreCount.has_value()
@@ -95,8 +93,6 @@ void testLifecycleIsExplicitAndRepeatable()
     const gigante::RealtimeSchedulingOutcome notRequested;
     const auto firstFacts = first->read(notRequested);
     const auto secondFacts = second->read(notRequested);
-    expect(firstFacts.platform == secondFacts.platform,
-           "repeated reads must keep platform identity");
     expect(firstFacts.platformName == secondFacts.platformName,
            "repeated reads must keep platform name");
     expect(firstFacts.architecture == secondFacts.architecture,
@@ -111,7 +107,6 @@ void testLifecycleIsExplicitAndRepeatable()
 void testUnavailableFactsRemainExplicit()
 {
     gigante::HostFacts facts;
-    facts.platform = gigante::PlatformKind::linuxHost;
     facts.platformName = "Linux";
     facts.sourceRevision = "test-revision";
 
@@ -132,21 +127,6 @@ void testUnavailableFactsRemainExplicit()
 
 void testNamesAreStable()
 {
-    expect(std::string{gigante::platformKindName(
-               gigante::PlatformKind::unknownHost)} == "Unknown",
-           "unknown platform name must be stable");
-    expect(std::string{gigante::platformKindName(
-               gigante::PlatformKind::androidHost)} == "Android",
-           "Android platform name must be stable");
-    expect(std::string{gigante::platformKindName(
-               gigante::PlatformKind::iosHost)} == "iOS",
-           "iOS platform name must be stable");
-    expect(std::string{gigante::platformKindName(
-               gigante::PlatformKind::linuxHost)} == "Linux",
-           "Linux platform name must be stable");
-    expect(std::string{gigante::platformKindName(
-               gigante::PlatformKind::macOsHost)} == "macOS",
-           "macOS platform name must be stable");
     expect(std::string{gigante::realtimeSchedulingStateName(
                gigante::RealtimeSchedulingState::notRequested)}
                == "notRequested",

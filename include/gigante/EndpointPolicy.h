@@ -15,7 +15,7 @@ enum class EndpointDirection
     output
 };
 
-enum class EndpointBus
+enum class AudioBus
 {
     builtIn,
     usb,
@@ -23,14 +23,14 @@ enum class EndpointBus
     unknown
 };
 
-struct AudioEndpointFacts
+struct AudioEndpoint
 {
     std::string endpointId;
     std::optional<std::string> platformId;
     std::string deviceName;
     std::optional<std::string> productName;
     EndpointDirection direction{EndpointDirection::input};
-    EndpointBus bus{EndpointBus::unknown};
+    AudioBus bus{AudioBus::unknown};
     std::uint32_t channelCount{0};
     std::vector<double> sampleRates;
 };
@@ -38,7 +38,7 @@ struct AudioEndpointFacts
 struct EndpointInventory
 {
     std::uint64_t generation{0};
-    std::vector<AudioEndpointFacts> endpoints;
+    std::vector<AudioEndpoint> endpoints;
 };
 
 class EndpointFactSource
@@ -52,7 +52,7 @@ public:
 struct EndpointRolePolicy
 {
     EndpointDirection requiredDirection{EndpointDirection::input};
-    std::vector<EndpointBus> allowedBuses;
+    std::vector<AudioBus> allowedBuses;
     std::uint32_t minimumChannelCount{0};
     double minimumSampleRate{0.0};
 };
@@ -117,7 +117,7 @@ struct EndpointSelectionResult
 
 [[nodiscard]] const char* endpointDirectionName(
     EndpointDirection direction) noexcept;
-[[nodiscard]] const char* endpointBusName(EndpointBus bus) noexcept;
+[[nodiscard]] const char* audioBusName(AudioBus bus) noexcept;
 [[nodiscard]] const char* endpointRejectionReasonName(
     EndpointRejectionReason reason) noexcept;
 [[nodiscard]] const char* endpointSelectionStatusName(

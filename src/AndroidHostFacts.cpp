@@ -25,7 +25,7 @@ HostFacts readAndroidHostFacts(
     const RealtimeSchedulingOutcome& realtimeScheduling)
 {
     auto facts = platformDetail::readPosixHostFacts(
-        PlatformKind::androidHost, realtimeScheduling);
+        "Android", realtimeScheduling);
     facts.buildFingerprint = readAndroidBuildFingerprint();
     return facts;
 }

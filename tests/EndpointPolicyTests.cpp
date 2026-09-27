@@ -24,14 +24,14 @@ void expect(const bool condition, const char* const message)
     std::cerr << "FAIL: " << message << '\n';
 }
 
-gigante::AudioEndpointFacts makeEndpoint(
+gigante::AudioEndpoint makeEndpoint(
     std::string endpointId,
     const gigante::EndpointDirection direction,
-    const gigante::EndpointBus bus,
+    const gigante::AudioBus bus,
     const std::uint32_t channelCount = 2U,
     std::vector<double> sampleRates = {44100.0, 48000.0})
 {
-    gigante::AudioEndpointFacts endpoint;
+    gigante::AudioEndpoint endpoint;
     endpoint.endpointId = std::move(endpointId);
     endpoint.platformId = "platform-device-1";
     endpoint.deviceName = "JUCE Device";
@@ -47,7 +47,7 @@ gigante::EndpointRolePolicy usbOutputPolicy()
 {
     gigante::EndpointRolePolicy policy;
     policy.requiredDirection = gigante::EndpointDirection::output;
-    policy.allowedBuses = {gigante::EndpointBus::usb};
+    policy.allowedBuses = {gigante::AudioBus::usb};
     policy.minimumChannelCount = 2U;
     policy.minimumSampleRate = 48000.0;
     return policy;
@@ -84,7 +84,7 @@ void testZeroOneAndSeveralCandidates()
 
     source.replace({makeEndpoint("usb-a",
                                  gigante::EndpointDirection::output,
-                                 gigante::EndpointBus::usb)});
+                                 gigante::AudioBus::usb)});
     const auto one = gigante::evaluateEndpointSelection(
         source.snapshot(), policy, noRequest);
     expect(one.status
@@ -99,10 +99,10 @@ void testZeroOneAndSeveralCandidates()
 
     source.replace({makeEndpoint("usb-a",
                                  gigante::EndpointDirection::output,
-                                 gigante::EndpointBus::usb),
+                                 gigante::AudioBus::usb),
                     makeEndpoint("usb-b",
                                  gigante::EndpointDirection::output,
-                                 gigante::EndpointBus::usb)});
+                                 gigante::AudioBus::usb)});
     const auto several = gigante::evaluateEndpointSelection(
         source.snapshot(), policy, noRequest);
     expect(several.status
@@ -133,7 +133,7 @@ void testEveryEligibilityReasonIsRetained()
 {
     auto endpoint = makeEndpoint("bad",
                                  gigante::EndpointDirection::input,
-                                 gigante::EndpointBus::builtIn,
+                                 gigante::AudioBus::builtIn,
                                  1U,
                                  {44100.0});
     const gigante::EndpointInventory inventory{4U, {std::move(endpoint)}};
@@ -169,7 +169,7 @@ void testUnknownBusNeedsAnExplicitRequest()
         1U,
         {makeEndpoint("unknown-a",
                       gigante::EndpointDirection::output,
-                      gigante::EndpointBus::unknown)}};
+                      gigante::AudioBus::unknown)}};
     const auto policy = usbOutputPolicy();
 
     const auto implicit = gigante::evaluateEndpointSelection(
@@ -198,10 +198,10 @@ void testDuplicateIdentityRejectsEveryDuplicate()
         9U,
         {makeEndpoint("duplicate",
                       gigante::EndpointDirection::output,
-                      gigante::EndpointBus::usb),
+                      gigante::AudioBus::usb),
          makeEndpoint("duplicate",
                       gigante::EndpointDirection::output,
-                      gigante::EndpointBus::usb)}};
+                      gigante::AudioBus::usb)}};
 
     const auto result = gigante::evaluateEndpointSelection(
         inventory, usbOutputPolicy(), requestEndpoint("duplicate"));
@@ -226,7 +226,7 @@ void testLossNeverSubstitutesAnotherEndpoint()
     const auto policy = usbOutputPolicy();
     source.replace({makeEndpoint("usb-a",
                                  gigante::EndpointDirection::output,
-                                 gigante::EndpointBus::usb)});
+                                 gigante::AudioBus::usb)});
     const auto first = gigante::evaluateEndpointSelection(
         source.snapshot(), policy, requestEndpoint("usb-a"));
     expect(first.status == gigante::EndpointSelectionStatus::selected,
@@ -234,7 +234,7 @@ void testLossNeverSubstitutesAnotherEndpoint()
 
     source.replace({makeEndpoint("usb-b",
                                  gigante::EndpointDirection::output,
-                                 gigante::EndpointBus::usb)});
+                                 gigante::AudioBus::usb)});
     const auto afterLoss = gigante::evaluateEndpointSelection(
         source.snapshot(), policy, requestEndpoint("usb-a"));
     expect(afterLoss.inventoryGeneration == 2U,
@@ -259,10 +259,10 @@ void testDuplexDirectionsKeepSeparateIdentity()
 {
     auto input = makeEndpoint("duplex-input",
                               gigante::EndpointDirection::input,
-                              gigante::EndpointBus::usb);
+                              gigante::AudioBus::usb);
     auto output = makeEndpoint("duplex-output",
                                gigante::EndpointDirection::output,
-                               gigante::EndpointBus::usb);
+                               gigante::AudioBus::usb);
     input.platformId = "same-duplex-device";
     output.platformId = "same-duplex-device";
     const gigante::EndpointInventory inventory{
@@ -286,10 +286,10 @@ void testInvalidIdentityAndMissingRequest()
         5U,
         {makeEndpoint("",
                       gigante::EndpointDirection::output,
-                      gigante::EndpointBus::usb),
+                      gigante::AudioBus::usb),
          makeEndpoint("usb-a",
                       gigante::EndpointDirection::output,
-                      gigante::EndpointBus::usb)}};
+                      gigante::AudioBus::usb)}};
     const auto result = gigante::evaluateEndpointSelection(
         inventory, usbOutputPolicy(), requestEndpoint("missing"));
     expect(result.status
@@ -308,8 +308,8 @@ void testStableNames()
     expect(std::string{gigante::endpointDirectionName(
                gigante::EndpointDirection::input)} == "input",
            "input direction name must be stable");
-    expect(std::string{gigante::endpointBusName(
-               gigante::EndpointBus::builtIn)} == "builtIn",
+    expect(std::string{gigante::audioBusName(
+               gigante::AudioBus::builtIn)} == "builtIn",
            "built-in bus name must be stable");
     expect(std::string{gigante::endpointRejectionReasonName(
                gigante::EndpointRejectionReason::duplicateIdentity)}
@@ -329,7 +329,7 @@ void testInvalidPolicyIsTerminalAndSpecific()
         6U,
         {makeEndpoint("usb-a",
                       gigante::EndpointDirection::output,
-                      gigante::EndpointBus::usb)}};
+                      gigante::AudioBus::usb)}};
     const auto request = requestEndpoint("usb-a");
     const auto result = gigante::evaluateEndpointSelection(
         inventory, policy, request);

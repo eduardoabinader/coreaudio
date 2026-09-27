@@ -10,7 +10,7 @@ HostFacts readIosHostFacts(
     const RealtimeSchedulingOutcome& realtimeScheduling)
 {
     return platformDetail::readAppleHostFacts(
-        PlatformKind::iosHost, realtimeScheduling);
+        "iOS", realtimeScheduling);
 }
 
 } // namespace

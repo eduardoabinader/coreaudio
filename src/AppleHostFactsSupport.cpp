@@ -42,12 +42,11 @@ std::optional<std::string> readSysctlString(const char* const name)
 } // namespace
 
 HostFacts readAppleHostFacts(
-    const PlatformKind platform,
+    const char* const platformName,
     const RealtimeSchedulingOutcome& realtimeScheduling)
 {
     HostFacts facts;
-    facts.platform = platform;
-    facts.platformName = platformKindName(platform);
+    facts.platformName = platformName;
     facts.logicalCoreCount = readSysctlValue<std::uint32_t>("hw.logicalcpu");
     facts.physicalMemoryBytes = readSysctlValue<std::uint64_t>("hw.memsize");
     facts.architecture = readSysctlString("hw.machine");

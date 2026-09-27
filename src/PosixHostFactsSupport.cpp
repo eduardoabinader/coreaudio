@@ -53,12 +53,11 @@ std::optional<struct utsname> readSystemName()
 } // namespace
 
 HostFacts readPosixHostFacts(
-    const PlatformKind platform,
+    const char* const platformName,
     const RealtimeSchedulingOutcome& realtimeScheduling)
 {
     HostFacts facts;
-    facts.platform = platform;
-    facts.platformName = platformKindName(platform);
+    facts.platformName = platformName;
     facts.logicalCoreCount = readLogicalCoreCount();
     facts.physicalMemoryBytes = readPhysicalMemoryBytes();
     facts.sourceRevision = revision;

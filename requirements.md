@@ -2,11 +2,11 @@
 
 ## Authority and status model
 
-This repository is the authoritative implementation of AHIO Group N. The
-stable IDs `REQ-N01` through `REQ-N45` are retained so Kuaru, AHIO, phases, and
-tests refer to one contract. The wording below is self-contained and adapted
-only where the user explicitly selected the repository name/path `coreaudio`;
-it does not import AHIO transport or Kuaru product policy.
+This repository is the authoritative implementation of AHIO Group N and of the
+product-neutral portions of Groups O and P. Their stable IDs are retained so
+Kuaru, AHIO, phases, and tests refer to one contract. Normative wording shared
+with AHIO is kept compatible; repository-local status and evidence remain in
+the separate columns and do not imply AHIO adoption.
 
 Each requirement tracks three independent states:
 
@@ -22,8 +22,8 @@ A build can support **Implemented**, but cannot by itself establish
 | ID | Requirement | Specified | Implemented | Verified | Phase / evidence |
 |---|---|---:|---:|---:|---|
 | REQ-N01 | Shared realtime audio lives in the independent `coreaudio` repository and contains cohesive audio processing, realtime observation, and deterministic test support—not general product utilities. | Yes | Yes | Yes | P8G core chain plus standalone/core and Kuaru golden verification |
-| REQ-N02 | Kuaru and AHIO consume an exact pinned revision of the same authoritative core; copies, translations, and product forks are prohibited. | Yes | Partial | No | Kuaru pins P8H commit `396ce772`; remote reachability was not reverified and P8I AHIO pin remains |
-| REQ-N03 | Public C++ uses the single namespace `gigante`; common types name their responsibility without repeating the owner name. | Yes | Yes | Yes | P8F public-header isolation build and review |
+| REQ-N02 | Kuaru and AHIO consume an exact pinned revision of the same authoritative core; copies, translations, and product forks are prohibited. | Yes | Partial | No | Kuaru's recorded gitlink is `ec81288`; the checked-out core is ahead during the current phase and needs a later exact gitlink update; P8I AHIO pin remains |
+| REQ-N03 | Public C++ code in the core shall use the single namespace `gigante`; common types describe their responsibility without repeating `Gigante` in every name. | Yes | Yes | Yes | P8F public-header isolation build and review |
 | REQ-N04 | Controlled types use `UpperCamelCase`; functions, variables, members, and constants use `lowerCamelCase`; no controlled symbol begins with `_` or gains snake-case aliases. Externally imposed ABI names stay in adapters. | Yes | Yes | Yes | P8F naming review, strict build |
 | REQ-N05 | No new module, class, target, configuration, or controlled symbol uses `Sinu`. Shared names use neutral ownership; piano-only names remain Kuaru-owned and AHIO-only names remain Ahio-owned. Existing names migrate by ownership in reviewable phases. | Yes | Partial | Partial | P8F core audit passed; consumer migration remains P8G |
 | REQ-N06 | The core depends on no product class/configuration, MIDI, voice, instrument, device, platform lifecycle, codec, socket, encoder/decoder role, transport, or UI. Product/platform adapters depend on the core only. | Yes | Yes | Yes | P8F JUCE-free target and header-isolation build |
@@ -103,7 +103,7 @@ are tracked independently as for Group N.
 | REQ-O01 | The platform layer shall live in the `coreaudio` repository as a separate target `gigantePlatform`, in the single namespace `gigante`, next to and independent of `giganteCore`. `giganteCore` shall never depend on it, which keeps REQ-N06 true for the core. Kuaru and AHIO shall consume the same pinned revision of both targets, with no copies or forks (REQ-N02). | Yes | Partial | Partial | P11B target independence verified; consumer adoption remains P11E/P11H and AHIO is unauthorized |
 | REQ-O02 | The platform layer shall contain no Kuaru or AHIO type and no encoder/decoder role, stream plan, transport, protocol, UI or DSP. Names follow REQ-N03 to REQ-N05: `UpperCamelCase` types, `lowerCamelCase` members, no leading underscore and no `Sinu` or `Ahio` in shared names. | Yes | Yes | Yes | P11B source/header audit and public-header isolation; POSIX/Apple duplication closeout verified 2026-09-27 |
 | REQ-O03 | One concrete implementation per target platform (Android, iOS, macOS, Linux) shall be selected at link time, following the precedent of `SinuPlatform`. No public header and no caller shall contain a platform conditional (REQ-M12). An unsupported target platform shall fail at configure time with a message naming the platform. | Yes | Yes | Partial | P11B Linux runtime, Android arm64 cross-build, Generic configure rejection; macOS/iOS not locally verified |
-| REQ-O04 | Moving the existing Kuaru pieces (`SinuPlatform`, `SinuHeadsetMonitor`, `SinuAudioFocus`, `SinuWakeLock`, `SinuForegroundService` and the shared `android_audio_runtime` sources) into the platform layer is a separate later phase with its own `go`, parity evidence and pinned-revision change. Until it is approved, Kuaru behavior shall not change. | Yes | No | No | Not started |
+| REQ-O04 | Kuaru's existing `SinuPlatform` responsibilities shall migrate into the shared `gigantePlatform` target. Moving those responsibilities together with `SinuHeadsetMonitor`, `SinuAudioFocus`, `SinuWakeLock`, `SinuForegroundService` and the shared `android_audio_runtime` sources is a separate later phase with its own `go`, parity evidence and pinned-revision change. Until it is approved, Kuaru behavior shall not change. | Yes | No | No | P11H specified; implementation not started |
 
 ### O.2 — JUCE as the only audio backend
 
@@ -120,7 +120,7 @@ are tracked independently as for Group N.
 | REQ-O08 | The platform layer shall supply facts only: per direction the JUCE device name, the platform id where the platform has one, the bus, product name, channel counts and sample rates, plus change events and host facts. It shall make no selection decision. | Yes | Partial | Partial | P11B host facts and P11C endpoint snapshot contract/fake verified; concrete inventories and change events remain P11E–P11G |
 | REQ-O09 | Endpoint eligibility and selection policy shall be shared C++ and declarative: for each role the required direction, the allowed buses and the minimum rate and channels. It shall behave identically on every platform and shall be testable with fake inventories and no hardware. Android Java or Kotlin shall contain no selection policy. | Yes | Yes | Yes | P11C hardware-free fake-inventory policy suite |
 | REQ-O10 | Selection shall keep requested and effective values distinct and shall treat zero, one and several candidates explicitly. It shall never infer a choice or fall back silently, and it shall retain the reason for every rejected candidate. | Yes | Yes | Yes | P11C explicit statuses, per-entry decisions, loss/substitution and invalid-policy tests |
-| REQ-O11 | The bus shall be a bounded attribute of an endpoint (`BUILT_IN`, `USB`, `OTHER`, `UNKNOWN`), not a device subclass. `UNKNOWN` shall mean the platform could not tell, and policy shall treat it as ineligible unless the user selected that device explicitly. It replaces the Kotlin `AudioDeviceKind`, and a session's transport shall be derived from its endpoints and link, never stored as a second copy. | Yes | Partial | Partial | P11C bounded bus and explicit-unknown behavior verified; transport derivation awaits consumer session work |
+| REQ-O11 | The bus shall be a bounded attribute of an endpoint (`BUILT_IN`, `USB`, `OTHER`, `UNKNOWN`), not a device subclass. `UNKNOWN` shall mean the platform could not tell, and policy shall treat it as ineligible unless the user selected that device explicitly. It replaces the Kotlin `AudioDeviceKind`, renamed `AudioBus` on 2026-09-25 (values unchanged until the Bluetooth removal), and a session's transport shall be derived from its endpoints and link, never stored as a second copy. | Yes | Partial | Partial | P11C `AudioBus` and explicit-unknown behavior verified; transport derivation awaits consumer session work |
 | REQ-O12 | Direction shall be a property of an endpoint. Where JUCE presents one duplex device, the two directional endpoints shall keep separate identities, and a session shall freeze both for its lifetime (REQ-L55). | Yes | Partial | Partial | P11C directional identity/duplex test verified; session freeze awaits consumer integration |
 | REQ-O13 | JUCE shall be used first: its enumeration everywhere, and its change notification where it exists (CoreAudio, iOS). Where JUCE lacks a fact or a notification (bus and hot-plug on Android and Linux), a platform fact source or a bounded rescan on a non-realtime thread shall supply it. Platform code shall be added only for a requirement that needs it, and the polling interval and cost shall be bounded and recorded. | Yes | No | No | Not started |
 
@@ -205,7 +205,7 @@ contract.
 | G0 | Establish the core repository as Group N authority and import its governance/architecture context | N01–N45; GOV-01–04 | Required documents, source audit, consistency checks, `git diff --check` | Complete 2026-09-24 |
 | P8F | Build skeleton plus deterministic Kuaru characterization; no production DSP moves | N01–N08, N21–N23, N26, N31, N33; GOV-01–07 | Configure/build/CTest, header isolation, dependency decision, fixture schema, reviewed pre-migration vectors | Complete 2026-09-24 |
 | P8G | Extract fixed-order chain and migrate Kuaru alone | N09–N11, N15, N17–N25, N32–N33; GOV-01–07 | Bit-exact/tolerance parity, lifecycle/realtime suite, stage-budget comparison | Complete locally: exact Kuaru gitlink, five-vector parity, lifecycle suite, controlled budget, and zero-allocation production test verified; remote reachability not reverified |
-| P8H | Neutral observation plus Kuaru `ProfileCollector` adapter | N26–N30, N32–N33; GOV-01–07 | Metrics parity and disabled-observer overhead | Complete locally 2026-09-25; began at `396ce772`, allocation closeout followed, current Kuaru baseline is `b39d375`, remote reachability not reverified |
+| P8H | Neutral observation plus Kuaru `ProfileCollector` adapter | N26–N30, N32–N33; GOV-01–07 | Metrics parity and disabled-observer overhead | Complete locally 2026-09-25; allocation closeout and later platform phases followed; Kuaru's recorded gitlink is `ec81288`, remote reachability not reverified |
 | P8K | AHIO-owned stream roles and local identity plan; no core implementation ownership | L32–L54 in AHIO | AHIO evidence; prerequisite for P8I | Not started in AHIO |
 | P8I | AHIO consumes pinned verified core in USB neutral bypass | N02, N06–N08, N13–N16, N19–N23, N27, N29, N34 | AHIO conservation/buffering/xrun/CPU/physical-latency comparison | Not started in AHIO |
 | P8J | AHIO enables independently calibrated effects incrementally | N10–N14, N17–N20, N24–N25, N35 | AHIO per-effect quality/stability/latency evidence | Not started in AHIO |
@@ -216,7 +216,7 @@ contract.
 | P11E | Android fact source and AHIO adoption | O05–O06, O13–O16, O20, O24 | Device contract test including physical detach/attach | Not started |
 | P11F | Linux and macOS fact sources | O13–O15, O18–O19, O24 | Contract tests per platform | Not started |
 | P11G | iOS fact source | O17, O24 | Contract test on hardware | Not started |
-| P11H | Kuaru migrates to the platform layer | O04 | Kuaru parity and regression evidence | Deferred |
+| P11H | Kuaru migrates `SinuPlatform` responsibilities into `gigantePlatform`, then migrates other mechanisms only where neutral | O04; Kuaru AM01–AM04 | Host-fact parity, lifecycle tests, product builds, exact gitlink and regression evidence | Specified; implementation awaits a separate `go` |
 | P12A | Specify the logger and shared build policy (Group P); no code | P01–P15 | Requirements review | Specified 2026-09-25 |
 | P12B | `giganteLog` with format, levels, backends, tests; spdlog evaluation first | P01–P10, P15–P16 | Golden vectors, level-gating and per-platform builds | Not started |
 | P12C | AHIO adopts the logger | P09, P11 | AHIO tests; `AhioLogger` retired | Not started in AHIO |

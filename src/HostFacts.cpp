@@ -5,25 +5,6 @@
 namespace gigante
 {
 
-const char* platformKindName(const PlatformKind platform) noexcept
-{
-    switch (platform)
-    {
-        case PlatformKind::unknownHost:
-            return "Unknown";
-        case PlatformKind::androidHost:
-            return "Android";
-        case PlatformKind::iosHost:
-            return "iOS";
-        case PlatformKind::linuxHost:
-            return "Linux";
-        case PlatformKind::macOsHost:
-            return "macOS";
-    }
-
-    return "Unknown";
-}
-
 const char* realtimeSchedulingStateName(
     const RealtimeSchedulingState state) noexcept
 {

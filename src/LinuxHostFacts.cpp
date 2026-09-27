@@ -10,7 +10,7 @@ HostFacts readLinuxHostFacts(
     const RealtimeSchedulingOutcome& realtimeScheduling)
 {
     return platformDetail::readPosixHostFacts(
-        PlatformKind::linuxHost, realtimeScheduling);
+        "Linux", realtimeScheduling);
 }
 
 } // namespace
