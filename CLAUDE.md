@@ -33,17 +33,20 @@ with fake-inventory tests. The later authorized P11H core-only step implements
 the neutral `EndpointMonitor` lifecycle required by REQ-O15. It does not
 implement an Android JNI source, migrate Kuaru's headset monitor, or authorize
 AHIO adoption; those remain separate steps requiring another `go`.
-P11F is partial on Linux only: JUCE owns endpoint enumeration and an injected,
-headless `/dev/snd` inotify source supplies change signals. Direct ALSA/sysfs
-bus enrichment was removed by user decision, so Linux reports an unknown bus
-and the corresponding REQ-O19 clause remains unmet. macOS/iOS endpoint work is
-explicitly deferred even though an inactive macOS draft is preserved in the
-tree; do not add it to a target or continue it without a new explicit request.
+Concrete endpoint sources are outside the current core scope. Linux/macOS
+callers start `ahioenc`/`ahiodec` only after product-owned logic confirms that
+the requested JUCE device exists. Do not add discovery, bus classification,
+hot-plug monitoring or Apple endpoint code without a separately reviewed
+requirement and phase roadmap.
 
 ## Phase discipline
 
 - Work on one approved phase at a time and stop for `go` before starting the
   next phase.
+- Before implementation, present a roadmap naming the objective, requirement
+  IDs, affected repositories/files, non-goals, acceptance checks and expected
+  documentation updates. Wait for a new `go` after that roadmap; an earlier
+  generic authorization does not approve work the user has not yet reviewed.
 - At the end of every phase, update all affected documentation and report the
   exact checks that ran.
 - Never commit. Provide a detailed proposed commit message instead.
