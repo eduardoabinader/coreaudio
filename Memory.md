@@ -495,3 +495,25 @@ REQ-P16 added: spdlog is the planned engine behind `gigante::Logger`, gated by t
 - This is REQ-O15 and a contract slice of REQ-O14 only. No Android JNI
   inventory/change source, Kuaru headset migration, AHIO change, device test or
   product policy was added. Those remain separately gated.
+
+## 2026-09-28 — EffectsChain collaboration documented
+
+- Expanded `architecture.md` with the implemented `EffectsChain` facade,
+  private implementation factory/strategy, JUCE and neutral selections,
+  lifecycle, non-owning PCM call, deterministic recovery and independent
+  observer hierarchy.
+- Recorded the exact Kuaru ownership/callback collaboration and fixed DSP
+  order, including the growl/filter relationship, state ownership and the
+  verified migration boundary. The document also records two current consumer
+  limitations: Kuaru does not consume `Status`/`ProcessReport`, and its legacy
+  profiling buckets do not map every neutral stage one-to-one.
+- Recorded the specified but unimplemented AHIO placement for local USB and
+  distributed decode: `EffectsChain` follows `AhioStreamDecoder` and precedes
+  AHIO endpoint policy. AHIO adapters, voice calibration, transport and reports
+  remain product-owned and separately gated.
+- Mirrored AHIO Group Q only as an architectural boundary: optional future
+  pitch correction would be a separate processor before `EffectsChain`, while
+  accompaniment metadata/reference acquisition remains AHIO-owned. This does
+  not add a core requirement, promise a core API, or authorize implementation.
+- Documentation only; no C++ source, build target, runtime behavior, golden
+  vector or verified phase status changed.

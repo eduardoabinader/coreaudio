@@ -66,6 +66,55 @@ them as `unavailable`; it never substitutes a plausible core count, memory
 size, architecture, or fingerprint. Host reads and string formatting are
 non-realtime operations and must not be called from an audio callback.
 
+### Host-facts collaboration and design patterns
+
+The host-facts boundary combines a factory method, strategy, and adapter with
+compile-time platform selection. It is sometimes described more broadly as an
+abstract factory, but the current API creates only one product type, so
+`createHostFactsSource()` is more precisely a factory method.
+
+```text
+KuaruPlatformContext
+        |
+        v
+createHostFactsSource()                 public factory method
+        |
+        v
+FunctionHostFactsSource                 HostFactsSource adapter
+        |
+        v
+platform reader selected by CMake       strategy selected at build/link time
+   |             |              |              |
+ Linux        Android          macOS           iOS
+   |             |              |              |
+   +-- PosixHostFactsSupport     +-- AppleHostFactsSupport
+        |
+        v
+HostFacts                               neutral observed data
+```
+
+`HostFactsSource` is the consumer-facing abstraction. The product depends on
+that interface rather than on `sysconf`, `uname`, `sysctl`, or Android system
+properties. This applies dependency inversion at the product/platform
+boundary.
+
+`FunctionHostFactsSource` is the only concrete class in the source hierarchy.
+It adapts a platform-reader function to `HostFactsSource`; Linux, Android,
+macOS, and iOS are functions composed with shared operating-system-family
+helpers, not four public subclasses. The platform translation unit linked by
+CMake defines the single `createHostFactsSource()` symbol and binds the
+corresponding reader. Consequently, callers perform no runtime platform switch
+and public headers require no product or platform conditional.
+
+`gigantePlatform` names the CMake target and architectural layer. It is not a
+runtime platform enum, singleton, or service locator. Every source returned by
+the factory is explicitly owned. A source reports observations, including
+physical memory when the operating system makes it available; it does not
+derive product policy from those observations. For example, iOS obtains
+physical memory through the shared Apple `sysctl` reader, while Android uses
+the shared POSIX `sysconf` reader. Failure remains an empty `std::optional`
+rather than triggering a guessed value or silent fallback.
+
 ## Endpoint facts and selection policy
 
 `EndpointFactSource` publishes generation-numbered snapshots of neutral facts.
@@ -145,19 +194,364 @@ The implemented processor contract has four explicit concepts:
 and repeatable. Invalid transitions return a specific terminal result; they do
 not choose an alternative configuration. No buffer view may escape the call.
 
-## Fixed chain migration boundary
+## EffectsChain structure and collaborations
 
-The first production migration preserves this order and behavior:
+### Public facade and private implementations
+
+`EffectsChain` is the single public processing facade. It owns lifecycle,
+validation, requested/effective state, deterministic invalid-value recovery,
+aggregate counters, observation boundaries, and the non-owning PCM contract.
+The actual DSP is behind the private `EffectsChainImplementation` interface:
 
 ```text
-tremolo -> growl control -> filter -> growl post-filter -> drive
-        -> bell peak -> phaser -> chorus -> reverb -> noise
-        -> soft limiter -> output gain
+product adapter
+      |
+      v
+gigante::EffectsChain                    public facade
+      | owns unique_ptr
+      v
+EffectsChainImplementation               private strategy
+      |
+      +-- JuceEffectsChainImplementation production fixed-order DSP
+      |
+      +-- NeutralEffectsChainImplementation
+              standalone contract and neutral bypass
 ```
+
+`createEffectsChainImplementation()` is the private factory. CMake selects
+exactly one implementation: a consumer-provided `GIGANTE_JUCE_TARGET` selects
+the JUCE production strategy; its absence selects the JUCE-free neutral
+strategy. The public header forward-declares the implementation and exposes no
+JUCE or product conditional. The neutral implementation reports that effects
+are unavailable, so requesting `ProcessingMode::effects` returns
+`effectsNotImplemented`; it never silently substitutes bypass.
+
+Observation is an independent hierarchy rather than product logic embedded in
+the processor:
+
+```text
+gigante::EffectsStageObserver
+      |
+      +-- KuaruEffectsObserver            Kuaru-owned ProfileCollector adapter
+      |
+      +-- RealtimeMetricsObserver         core-owned bounded neutral metrics
+      |
+      +-- future AhioEffectsObserver      AHIO-owned report adapter
+```
+
+The core accepts a nullable observer. `StageScope` pairs begin/end notification
+with RAII around each production stage. A null observer changes neither DSP
+order nor output.
+
+### Lifecycle and one-block call
+
+```text
+construction
+    -> createEffectsChainImplementation()
+
+non-realtime setup
+    -> prepare(requested configuration, initial parameters)
+       -> validate sample rate, mono/stereo layout, maximum block size
+       -> retain requested and effective configuration separately
+       -> resolve non-finite parameters deterministically
+       -> allocate/prepare implementation state and scratch
+
+realtime block
+    -> process(non-owning PCM, immutable parameter snapshot, context, observer)
+       -> validate lifecycle, channel pointers/count and block size
+       -> retain requested parameters and resolve effective parameters
+       -> observe input and replace non-finite input samples with zero
+       -> process selected implementation in place
+       -> observe post-chain and replace non-finite output samples with zero
+       -> publish counters/status/latency in ProcessReport
+
+repeatable control
+    -> reset(parameters, observer)
+    -> release()
+```
+
+`AudioBufferView` owns no PCM and cannot escape the synchronous call. Passing a
+JUCE buffer therefore needs only a bounded array of channel pointers; it adds
+no FIFO, callback-size adaptation, thread hop, or boundary copy. Parameters
+that are NaN or infinite retain their preceding effective values, while the
+requested values and recovery counters preserve evidence of the bad request.
+
+### Kuaru collaboration
+
+Kuaru owns one `EffectsChain` by composition inside its synthesizer. It owns
+the parameter objects, presets, voices, MIDI, instrument calibration,
+polyphony policy, headset policy, and product profiling adapter. The core owns
+only the musical DSP state and neutral observation contract.
+
+```text
+SinukaruPianoSynthesizer
+      | owns
+      v
+gigante::EffectsChain
+      | owns
+      v
+EffectsChainImplementation
+      |
+      +-- JuceEffectsChainImplementation in the Kuaru production build
+```
+
+The Kuaru callback collaboration is:
+
+```text
+MIDI + instrument
+    -> render voices                              Kuaru
+    -> instrument output gain                    Kuaru
+    -> sqrt(2/N) polyphony headroom/ramp         Kuaru
+    -> expose existing JUCE channel pointers
+    -> map SinuAudioParam values                 Kuaru adapter
+         to gigante::EffectsParameters
+    -> build ProcessingContext
+         sourceLevel                             instrument calibration
+         generatedNoiseEnabled                   active-voice policy
+         outputMuted                             Kuaru output policy
+         firstSamplePosition                     product timeline
+    -> EffectsChain::process()                   coreaudio
+    -> debug capture/output                      Kuaru
+```
+
+Preparation and teardown follow the product device lifecycle:
+
+```text
+Kuaru prepareToPlay()       -> EffectsChain::prepare()
+Kuaru resetRuntimeState()   -> EffectsChain::reset()
+Kuaru releaseResources()    -> EffectsChain::release()
+```
+
+Kuaru's `effectsParameters()` is the product adapter. Headset gain capping is
+resolved there before `outputGainDb` crosses the neutral boundary; the core
+does not know `SinuAudioParam`, presets, headset state, or JSON. The
+`KuaruEffectsObserver` maps neutral stage events to `ProfileCollector` without
+making the core depend on that collector.
+
+The current consumer integration calls `prepare()` and `process()` but does not
+yet consume their returned `Status` and `ProcessReport`. The core still retains
+the requested/effective state and cumulative recovery counters; surfacing
+those results in Kuaru diagnostics is separate consumer hardening, not hidden
+inside the DSP.
+
+The current profiling adapter also preserves a legacy bucket boundary rather
+than mapping every neutral stage one-to-one: `preGrowl()` begins at
+`growlControl`, while `postFilter()` ends at `growlPostFilter`; no current
+callback finalizes the legacy `growl` bucket. This does not change samples, but
+it means the Kuaru profiling fields must not be described as exact mirrors of
+all core stages until a separately measured adapter correction is made.
+
+### Fixed production order and stage collaboration
+
+The production implementation processes the granted PCM in place in this
+verified order:
+
+```text
+input
+  -> tremolo
+  -> growl control
+  -> low-pass filter
+  -> growl post-filter
+  -> drive
+  -> bell peak
+  -> phaser
+  -> chorus
+  -> reverb
+  -> generated noise
+  -> soft limiter
+  -> output gain / mute
+  -> output
+```
+
+The growl and filter stages deliberately collaborate:
+
+```text
+growl control
+    -> measures the pre-filter envelope
+    -> modulates the filter cutoff
+                         |
+                         v
+                 low-pass filter
+                         |
+                         v
+growl post-filter
+    -> derives body, bite, grit and headroom from the filtered signal
+```
+
+State and transition ownership remains inside the implementation:
+
+- tremolo, filter, growl, drive, and chorus parameter smoothing;
+- growl envelopes and its filter-cutoff control state;
+- two bell filters plus preallocated scratch for coefficient crossfade;
+- phaser state and its bounded turn-off tail;
+- per-channel chorus delay rings and phase;
+- reverb state and tail;
+- deterministic per-channel generated-noise state;
+- limiter envelope; and
+- the block-ramped final gain/mute state.
+
+The current implementation reports zero algorithmic-latency samples. Its
+preallocated bell crossfade performs an intentional whole-block scratch copy
+only while coefficients transition; this is part of the characterized Kuaru
+implementation, adds no FIFO or algorithmic delay, and is not a generic block
+adapter.
+
+Changing this order changes the sound and is not an ordinary refactor. The
+initial extraction preserves it under REQ-N09 and the reviewed Kuaru goldens.
+A later common fixed-order change needs its own measurement and new reviewed
+evidence. A configurable order would need requested/effective topology,
+preparation-time validation, bounded preallocation, and an explicit policy for
+the state and tails of reordered processors. Runtime graph construction or an
+implicit product/platform order is outside the current contract.
+
+### AHIO collaboration — specified, not implemented
+
+AHIO will own capture conditioning, encoder/decoder roles, devices, routing,
+codec, packets, jitter/clocks, endpoint policy, product parameters, and report
+adaptation. `EffectsChain` is placed only in render processing after
+`AhioStreamDecoder` and before endpoint processing:
+
+```text
+capture endpoint
+    -> source conditioning                         AHIO encoder
+    -> AhioStreamEncoder
+    -> AhioStreamLink
+    -> AhioStreamDecoder
+    -> gigante::EffectsChain                       decoder render processing
+    -> endpoint correction/volume/protection       AHIO endpoint policy
+    -> playback endpoint
+```
+
+For co-located USB, the roles remain explicit but execute synchronously in the
+granted combined callback:
+
+```text
+JUCE input
+    -> source conditioning
+    -> LocalPcmStreamEncoder
+    -> LocalPcmStreamLink                          identity PCM
+    -> LocalPcmStreamDecoder
+    -> EffectsChain                               neutral bypass in P8I
+    -> endpoint processing
+    -> JUCE output
+```
+
+The local encoder/link/decoder boundaries add no compression, RTP header,
+serialization, FIFO, worker hop, mandatory copy, or block accumulation. P8I
+first verifies neutral bypass against the existing USB baseline. P8J may then
+enable one independently calibrated voice effect at a time.
+
+For a distributed deployment, the same render boundary follows decode:
+
+```text
+encoder node                                decoder node
+microphone                                  network receive/playout
+  -> source conditioning                      -> Opus decode
+  -> Opus encode                              -> EffectsChain
+  -> RTP/UDP ------------------------------->  -> endpoint policy
+                                                -> speaker
+```
+
+The core sees decoded PCM only. It never sees stream epochs, Opus frames, RTP,
+sockets, jitter buffers, endpoint identities, or network clocks. AHIO may map
+its first canonical sample position into `ProcessingContext`, but owns that
+mapping and all transport synchronization.
+
+The future product adapter collaboration is:
+
+```text
+ahio.json / encoder-owned control snapshot
+                   |
+                   v
+          AhioEffectsAdapter
+              |          |
+              |          +-> ProcessingContext
+              +-> EffectsParameters
+              |
+              +-> EffectsStageObserver -> AHIO bounded metrics/reporting
+                   |
+                   v
+             EffectsChain::process()
+                   |
+                   v
+              ProcessReport -> AHIO non-realtime report adapter
+```
+
+AHIO must not copy Kuaru's product values. Its `sourceLevel` is calibrated for
+voice/input rather than piano packs; generated noise starts explicitly
+disabled; its first route may be declared mono; and endpoint volume/protection
+remain after render processing. When the fixed chain is enabled, its internal
+soft limiter is a musical render stage and does not replace AHIO's final
+endpoint protection. Core `outputGainDb` cannot silently become endpoint
+volume; the AHIO adapter must define its requested and effective use.
+
+### Optional future pitch correction at the AHIO boundary
+
+AHIO Group Q records live pitch correction as a deferred nice-to-have. It is
+not part of `EffectsChain`, current core requirements, P8I, or P8J. Because the
+karaoke accompaniment may be played by another system, AHIO has no implicit
+song PCM, key, timeline, or transposition.
+
+```text
+external karaoke system ----------------------------> accompaniment speaker
+          |
+          +-- optional versioned metadata --------┐
+          +-- optional reference-audio sidechain -+--> musical context
+          +-- optional recognized song/timeline --┘          |
+                                                              v
+vocal mic -> conditioning -> encode/link/decode -> pitch correction
+                                                        |
+                                                        v
+                                                   EffectsChain
+                                                        |
+                                                        v
+                                             AHIO endpoint -> vocal output
+```
+
+If later justified, pitch correction is a separate cohesive processor placed
+before the existing vocal effects:
+
+```text
+decoded vocal PCM
+    -> vocal pitch tracking/correction
+    -> EffectsChain
+    -> endpoint policy
+```
+
+It is not inserted into the fixed chain merely for convenience. A future reuse
+audit may justify a neutral `gigante::PitchCorrectionProcessor`; until then,
+ownership remains undecided and no core API is promised. Its collaboration
+would keep musical-reference acquisition in AHIO:
+
+```text
+AHIO musical-reference source
+    -> bounded immutable musical-context snapshot
+    -> AHIO pitch-correction adapter
+    -> separately owned pitch processor
+    -> EffectsChain
+```
+
+Metadata from the external karaoke system is preferred. A dedicated
+reference-audio input may instead feed a bounded non-realtime harmonic
+analyzer, and an exact recognized song/version may select a precomputed
+timeline if playback position and transposition are also established. Music
+leaking into the vocal microphone is not a qualifying separated reference.
+Without a valid reference, only an explicitly selected chromatic correction,
+pitch stabilization, or disabled mode is allowed; no component invents a key
+or silently retains stale harmony.
+
+Any future pitch processor must report its algorithmic latency in samples.
+Pitch-detection windows, look-ahead, delay and alignment buffers are inherent
+possibilities rather than permission to hide unbounded buffering: they require
+fixed limits, occupancy/latency observation, deterministic reset and loss
+behavior, and a declared constant- or variable-latency bypass policy.
+
+### Fixed chain migration boundary
 
 Extraction is a relocation and boundary change, not an optimization phase.
 Kuaru characterization precedes movement. Kuaru migrates first and must pass
-reviewed equivalence gates before AHIO consumes the core.
+reviewed equivalence gates before AHIO consumes the core. AHIO adoption remains
+separately gated and has not occurred.
 
 ## Realtime observation
 
