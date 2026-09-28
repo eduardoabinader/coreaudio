@@ -1,6 +1,7 @@
 #include "gigante/EndpointPolicy.h"
 #include "gigante/EndpointMonitor.h"
 #include "gigante/HostFacts.h"
+#include "gigante/PlatformEndpointSources.h"
 
 namespace
 {
