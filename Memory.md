@@ -541,3 +541,44 @@ REQ-P16 added: spdlog is the planned engine behind `gigante::Logger`, gated by t
   plus the working-tree digest. The final source audit found no concrete
   endpoint-source, ALSA/sysfs or inotify implementation reference, and
   `git diff --check` passed in both the coreaudio and Kuaru repositories.
+
+## 2026-09-28 — P12B multiplatform logger foundation
+
+- Added the independent JUCE-free `giganteLog` / `gigante::log` target and the
+  public `gigante::Logger` facade. The facade owns canonical AHIO-compatible
+  formatting, stable field sorting, single-line sanitization and the explicit
+  requested/compiled/effective level report. spdlog types remain private.
+- The build ceiling is one of `OFF`, `ERROR`, `WARN`, `INFO`, `DEBUG` or
+  `TRACE`. Facade macros remove higher calls before argument evaluation;
+  runtime configuration can only lower the effective level. Invalid CMake
+  strings fail configuration rather than selecting a default. An `OFF` build
+  compiles `DisabledLogger.cpp` and has no spdlog target or link dependency.
+- `SessionIdSequence` is explicitly owned and shared by the product and
+  injected into its loggers. This makes session IDs monotonic across logger
+  instances without a singleton; zero is reserved for events without a
+  session.
+- Enabled builds use synchronous spdlog 1.17.0 pinned to immutable commit
+  `79524ddd08a4ec981b7fea76afd08ee05f83755d`, with bundled fmt 12.1.0.
+  The exact revision was exported from the user's existing clone for the
+  pinned verification build; the clone itself was not modified. No default
+  logger, global registry, asynchronous pool or realtime entry point is used.
+- CMake selects separate backend units. Linux uses spdlog's thread-safe
+  colored stderr sink, Android uses its raw-message logcat sink, and tests use
+  its callback sink. spdlog supplies color, flush and sink synchronization;
+  the facade does not reproduce them. macOS can use the terminal unit, but
+  native `os_log` and Apple build evidence remain open. iOS is outside the
+  current Linux/macOS/Android product focus.
+- MIT notices for spdlog and bundled fmt are in `THIRD_PARTY_NOTICES.md`.
+  Informative Release archive sizes were: Linux `giganteLog` 96,900 bytes and
+  spdlog 1,485,698 bytes; Linux `OFF` `giganteLog` 32,896 bytes with no
+  spdlog; Android arm64 `giganteLog` 1,108,282 bytes and spdlog 10,460,838
+  bytes. These are static archives with toolchain/debug metadata, not final
+  linked-product deltas, and are not gates.
+- Strict Linux Debug/TRACE, Release/INFO pinned-source and Release/OFF suites
+  pass CTest 8/8. Tests cover the AHIO golden line, ordering, sanitization,
+  both level ceilings, compiled-out side effects, callback/platform sink
+  lifecycle, shared sessions, flush and concurrent non-interleaving. Android
+  arm64 Release cross-builds `giganteLog` with NDK 29 and warnings as errors.
+  The Kuaru `sinukaru` target rebuilt and linked without adopting or linking
+  `giganteLog`; AHIO was not changed. macOS and product adoption remain
+  explicitly unverified, so P12B and REQ-P05/P10/P16 stay partial.

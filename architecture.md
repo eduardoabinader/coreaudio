@@ -177,7 +177,8 @@ gigantePlatform  HostFactsSource, AudioEndpoint, AudioBus, EndpointInventory,
                  (present as neutral/injected contracts); no concrete endpoint
                  source; SessionPreparation remains planned
 giganteLog       Logger with levels, per-platform backends, build-policy gating;
-                 BuildPolicy later (planned)
+                 Linux/Android foundation present; macOS native sink and
+                 BuildPolicy later
 ```
 
 `giganteCore` links neither. The platform layer supplies facts and never
@@ -186,6 +187,41 @@ inventories. `Logger` is never called from a realtime callback; realtime code
 keeps `RealtimeMetrics`. Products depend on these targets, never the reverse.
 The full class hierarchy and collaborations are in
 `modules/ahio/ahio-architecture.md`, section "Target classes and collaborations".
+
+### Logger structure and level precedence
+
+`giganteLog` exposes no spdlog or JUCE type. The caller owns one explicit
+`SessionIdSequence` for every logger in the process, so IDs are monotonic and
+process-unique without a singleton. Each `Logger` owns its synchronous spdlog
+logger and sink; it is never registered in spdlog's global registry.
+
+```text
+SessionIdSequence ──injected──> Logger
+                                 ├── canonical line formatter
+build ceiling ──────────────────>├── effective = min(build, runtime)
+runtime request ────────────────>├── requested/effective report
+                                 └── private spdlog::logger
+                                       ├── callback sink (tests/adapters)
+                                       ├── stderr color sink (Linux/macOS)
+                                       └── Android sink (logcat)
+```
+
+Facade macros remove calls above `GIGANTE_LOG_COMPILED_LEVEL` before argument
+evaluation. Runtime configuration may only lower that ceiling. With build
+level `OFF`, `DisabledLogger.cpp` replaces the spdlog implementation and the
+dependency is absent from the target graph. With logging enabled, spdlog
+1.17.0 is pinned to commit
+`79524ddd08a4ec981b7fea76afd08ee05f83755d` and supplies synchronization,
+flush, native Android priority mapping and terminal color. The facade supplies
+only the stable AHIO-compatible line, sanitization, field order, sessions and
+requested/effective reporting.
+
+Linux uses the thread-safe colored stderr sink; color mode is an explicit
+construction option and never changes the canonical captured line. Android
+uses spdlog's raw-message logcat sink. macOS can use the same terminal sink,
+but its required `os_log` adapter and Apple build evidence remain a later
+step. iOS is outside the current supported product focus. No asynchronous
+spdlog worker, default logger, registry or realtime entry point is used.
 
 ## Processing boundary
 

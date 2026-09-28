@@ -51,6 +51,18 @@ target_compile_features(giganteEndpointMonitorTests PRIVATE cxx_std_17)
 gigante_enable_project_warnings(giganteEndpointMonitorTests)
 add_test(NAME giganteEndpointMonitorTests COMMAND giganteEndpointMonitorTests)
 
+add_executable(giganteLogTests LoggerTests.cpp)
+target_link_libraries(giganteLogTests PRIVATE gigante::log)
+target_compile_features(giganteLogTests PRIVATE cxx_std_17)
+gigante_enable_project_warnings(giganteLogTests)
+add_test(NAME giganteLogTests COMMAND giganteLogTests)
+
+add_executable(giganteLogCompiledOutTests LoggerCompiledOutTests.cpp)
+target_link_libraries(giganteLogCompiledOutTests PRIVATE gigante::log)
+target_compile_features(giganteLogCompiledOutTests PRIVATE cxx_std_17)
+gigante_enable_project_warnings(giganteLogCompiledOutTests)
+add_test(NAME giganteLogCompiledOutTests COMMAND giganteLogCompiledOutTests)
+
 add_library(gigantePublicHeaderIsolation OBJECT PublicHeaderIsolation.cpp)
 target_link_libraries(gigantePublicHeaderIsolation PRIVATE gigante::core)
 target_compile_features(gigantePublicHeaderIsolation PRIVATE cxx_std_17)
@@ -70,3 +82,8 @@ target_compile_features(
     PRIVATE cxx_std_17
 )
 gigante_enable_project_warnings(gigantePlatformPublicHeaderIsolation)
+
+add_library(giganteLogPublicHeaderIsolation OBJECT LogPublicHeaderIsolation.cpp)
+target_link_libraries(giganteLogPublicHeaderIsolation PRIVATE gigante::log)
+target_compile_features(giganteLogPublicHeaderIsolation PRIVATE cxx_std_17)
+gigante_enable_project_warnings(giganteLogPublicHeaderIsolation)

@@ -38,6 +38,12 @@ callers start `ahioenc`/`ahiodec` only after product-owned logic confirms that
 the requested JUCE device exists. Do not add discovery, bus classification,
 hot-plug monitoring or Apple endpoint code without a separately reviewed
 requirement and phase roadmap.
+P12B now provides the product-neutral `giganteLog` foundation. It encapsulates
+the pinned spdlog engine, keeps requested/build/effective levels distinct,
+uses an explicitly injected process session-id sequence, and compiles spdlog
+out entirely when the build ceiling is `OFF`. Linux and Android have build
+evidence; macOS remains unverified. This does not authorize AHIO or Kuaru
+logger adoption, an Apple `os_log` sink, or logging from a realtime callback.
 
 ## Phase discipline
 
