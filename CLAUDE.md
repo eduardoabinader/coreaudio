@@ -33,6 +33,12 @@ with fake-inventory tests. The later authorized P11H core-only step implements
 the neutral `EndpointMonitor` lifecycle required by REQ-O15. It does not
 implement an Android JNI source, migrate Kuaru's headset monitor, or authorize
 AHIO adoption; those remain separate steps requiring another `go`.
+P11F is partial on Linux only: JUCE owns endpoint enumeration and an injected,
+headless `/dev/snd` inotify source supplies change signals. Direct ALSA/sysfs
+bus enrichment was removed by user decision, so Linux reports an unknown bus
+and the corresponding REQ-O19 clause remains unmet. macOS/iOS endpoint work is
+explicitly deferred even though an inactive macOS draft is preserved in the
+tree; do not add it to a target or continue it without a new explicit request.
 
 ## Phase discipline
 

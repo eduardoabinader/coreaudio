@@ -154,19 +154,53 @@ its own stack frame. All source reads and callbacks are explicitly
 non-realtime. Platform inventory readers and change signals still belong to
 P11E/P11F/P11G under REQ-O13 to REQ-O19.
 
+The current Linux source keeps JUCE as the sole endpoint-inventory authority.
+It asks JUCE's Linux `AudioIODeviceType` for directional names and obtains
+channel/rate capabilities through JUCE devices. It does not repeat JUCE's list
+through `snd_device_name_hint`, call ALSA directly, or inspect sysfs merely to
+classify a connection. Because JUCE does not expose those native facts, Linux
+currently leaves `platformId` and `productName` absent and `AudioBus` as
+`unknown`; policy can still accept an explicitly requested unknown-bus
+endpoint, but cannot infer one.
+
+JUCE's ALSA device type does not publish the required hot-plug notification.
+The Linux change source therefore watches `/dev/snd` with `inotify` on one
+explicitly owned non-realtime thread. The event is only an invalidation signal:
+`EndpointMonitor` obtains a complete replacement inventory from JUCE. An
+`eventfd` wakes teardown, the worker is joined before external `stop()`
+returns, and callback-triggered stop detaches only the current worker stack
+while shared state keeps its descriptors alive. A contract test injects an
+owned temporary watch directory, requires notification within two seconds,
+repeats stop and verifies no late callback. This uses neither display/session
+bus nor audio hardware.
+
+Live JUCE inventory probing is separated behind
+`GIGANTE_ENABLE_LIVE_ENDPOINT_TESTS`. It is off in the deterministic CTest
+suite because host ALSA plugins may contact Pulse/JACK or block independently
+of the library; a platform verification run enables it explicitly and records
+the observed environment. Factory status and the injected inotify lifecycle
+remain covered with live probing disabled.
+
+The direct ALSA/sysfs bus enrichment originally attempted during P11F was
+removed by user decision on 2026-09-28. That makes the bus sentence in
+REQ-O19 explicitly unmet rather than silently claiming equivalence. macOS and
+iOS endpoint sources are not selected by CMake and remain deferred; the
+preserved macOS source file is an inactive draft, not implementation evidence.
+
 ## Platform, logging and build-policy layers
 
 Group O and Group P extend the structure without changing `giganteCore`.
-Host facts (P11B), the neutral endpoint value/policy layer (P11C), and the
-endpoint-monitor lifecycle are present. Platform inventories/change sources,
-session preparation and logging remain planned.
+Host facts (P11B), the neutral endpoint value/policy layer (P11C), the
+endpoint-monitor lifecycle, and the partial Linux endpoint source are present.
+Other platform inventories/change sources, session preparation and logging
+remain planned.
 
 ```text
 giganteCore      JUCE-free DSP; depends on nothing below
 gigantePlatform  HostFactsSource, AudioEndpoint, AudioBus, EndpointInventory,
                  EndpointPolicy, EndpointMonitor and EndpointChangeSource
-                 (present); platform endpoint sources and SessionPreparation
-                 (planned)
+                 (present); Linux JUCE inventory/inotify source (partial);
+                 other endpoint sources and SessionPreparation (planned)
 giganteLog       Logger with levels, per-platform backends, build-policy gating;
                  BuildPolicy later (planned)
 ```

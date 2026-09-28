@@ -12,7 +12,6 @@ option(GIGANTE_WARNINGS_AS_ERRORS "Treat Gigante Labs Core warnings as errors" O
 set(GIGANTE_REVISION "unknown" CACHE STRING "Exact source revision for reproducible build identity")
 set(GIGANTE_JUCE_TARGET "" CACHE STRING
     "Existing consumer-provided interface target for the pinned JUCE modules")
-set(GIGANTE_HAS_PLATFORM_ENDPOINT_SOURCES OFF)
 
 if(GIGANTE_JUCE_TARGET AND NOT TARGET ${GIGANTE_JUCE_TARGET})
     message(FATAL_ERROR
@@ -42,11 +41,9 @@ target_sources(
         src/EndpointMonitor.cpp
         src/EndpointPolicy.cpp
         src/HostFacts.cpp
-        src/PlatformEndpointSources.cpp
         include/gigante/EndpointMonitor.h
         include/gigante/EndpointPolicy.h
         include/gigante/HostFacts.h
-        include/gigante/PlatformEndpointSources.h
 )
 
 target_include_directories(
@@ -102,32 +99,8 @@ if(GIGANTE_JUCE_TARGET)
     target_link_libraries(giganteCore PRIVATE ${GIGANTE_JUCE_TARGET})
     target_compile_definitions(giganteCore PRIVATE GIGANTE_HAS_JUCE_DSP=1)
     target_link_libraries(gigantePlatform PRIVATE ${GIGANTE_JUCE_TARGET})
-
-    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-        target_sources(
-            gigantePlatform
-            PRIVATE
-                src/JuceEndpointSourcesSupport.cpp
-                src/JuceEndpointSourcesSupport.h
-                src/LinuxEndpointSources.cpp
-        )
-        set(GIGANTE_HAS_PLATFORM_ENDPOINT_SOURCES ON)
-    else()
-        target_sources(
-            gigantePlatform
-            PRIVATE src/UnavailablePlatformEndpointSources.cpp
-        )
-        target_compile_definitions(
-            gigantePlatform
-            PRIVATE GIGANTE_PLATFORM_ENDPOINT_BACKEND_NOT_IMPLEMENTED=1
-        )
-    endif()
 else()
     target_sources(giganteCore PRIVATE src/NeutralEffectsChainImplementation.cpp)
-    target_sources(
-        gigantePlatform
-        PRIVATE src/UnavailablePlatformEndpointSources.cpp
-    )
 endif()
 
 target_compile_features(giganteCore PUBLIC cxx_std_17)

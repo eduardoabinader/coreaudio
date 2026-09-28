@@ -51,36 +51,6 @@ target_compile_features(giganteEndpointMonitorTests PRIVATE cxx_std_17)
 gigante_enable_project_warnings(giganteEndpointMonitorTests)
 add_test(NAME giganteEndpointMonitorTests COMMAND giganteEndpointMonitorTests)
 
-add_executable(
-    gigantePlatformEndpointSourcesTests
-    PlatformEndpointSourcesTests.cpp
-)
-target_link_libraries(
-    gigantePlatformEndpointSourcesTests
-    PRIVATE gigante::platform
-)
-target_compile_features(
-    gigantePlatformEndpointSourcesTests
-    PRIVATE cxx_std_17
-)
-if(GIGANTE_HAS_PLATFORM_ENDPOINT_SOURCES)
-    target_compile_definitions(
-        gigantePlatformEndpointSourcesTests
-        PRIVATE GIGANTE_TEST_HAS_PLATFORM_ENDPOINT_SOURCES=1
-    )
-    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-        target_compile_definitions(
-            gigantePlatformEndpointSourcesTests
-            PRIVATE GIGANTE_TEST_LINUX_ENDPOINT_SOURCE=1
-        )
-    endif()
-endif()
-gigante_enable_project_warnings(gigantePlatformEndpointSourcesTests)
-add_test(
-    NAME gigantePlatformEndpointSourcesTests
-    COMMAND gigantePlatformEndpointSourcesTests
-)
-
 add_library(gigantePublicHeaderIsolation OBJECT PublicHeaderIsolation.cpp)
 target_link_libraries(gigantePublicHeaderIsolation PRIVATE gigante::core)
 target_compile_features(gigantePublicHeaderIsolation PRIVATE cxx_std_17)

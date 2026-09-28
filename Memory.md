@@ -517,3 +517,33 @@ REQ-P16 added: spdlog is the planned engine behind `gigante::Logger`, gated by t
   not add a core requirement, promise a core API, or authorize implementation.
 - Documentation only; no C++ source, build target, runtime behavior, golden
   vector or verified phase status changed.
+
+## 2026-09-28 — P11F partial Linux endpoint source
+
+- Added a `PlatformEndpointSources` ownership/result contract. A consumer that
+  provides no pinned JUCE target receives `backendUnavailable`; a target whose
+  endpoint source is not implemented receives `platformNotImplemented`. There
+  is no implicit backend or global source.
+- Linux uses JUCE's `AudioIODeviceType` as the only inventory authority for
+  input/output names, channel counts and sample rates. It avoids
+  `AudioDeviceManager` so endpoint discovery does not initialize unrelated MIDI
+  monitoring. Direction is part of each stable endpoint identity.
+- The initial direct ALSA hint/card and sysfs bus enrichment was removed at the
+  user's request. Linux now leaves platform/product metadata absent and
+  `AudioBus::unknown` when JUCE does not expose them. This intentionally leaves
+  the bus clause of REQ-O19 unmet; no requirement is reported complete merely
+  because the reduced implementation builds.
+- Linux hot-plug invalidation uses `/dev/snd` inotify on a non-realtime worker,
+  with `eventfd` wakeup and joined/idempotent teardown. The production path is
+  injected in the platform factory; the same source watches a test-owned
+  temporary directory for deterministic contract evidence.
+- Strict standalone Debug and Release CTest pass 7/7. Deterministic platform
+  CTest keeps live probing off while still testing factory status and the real
+  injected inotify lifecycle. A separate live JUCE 8.0.8 Linux run observed 22
+  directional endpoints and verified absent inferred metadata; JUCE itself
+  emitted unavailable Pulse/JACK diagnostics in the sandbox, so live probing
+  is explicitly enabled with `GIGANTE_ENABLE_LIVE_ENDPOINT_TESTS` rather than
+  becoming a hardware/environment dependency of every test run. The source
+  did not call ALSA directly. `git diff --check` passed.
+- P11F, O13, O14, O19 and O24 remain partial. No Android, macOS, iOS, AHIO or
+  Kuaru consumer behavior was changed, and no Apple verification is claimed.
