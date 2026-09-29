@@ -71,6 +71,10 @@ logger adoption, an Apple `os_log` sink, or logging from a realtime callback.
   constants use `lowerCamelCase`.
 - No internally controlled symbol begins with `_`; do not add new `Sinu` names.
 - Public headers contain no product conditionals or product types.
+- Keep public headers together under `include/gigante`. Group implementation
+  files and private headers by architectural responsibility under `src/dsp`,
+  `src/logger`, `src/metrics`, and `src/platform`. A physical source group does
+  not create a nested public namespace or authorize a new target dependency.
 - Dependencies flow from products to the core. The core never depends on Kuaru
   or AHIO.
 - Prefer small interfaces, explicit responsibilities, composition, RAII, and

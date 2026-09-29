@@ -198,6 +198,7 @@ contract.
 | GLC-GOV-07 | Fixtures record revision, parameters, rate, channels, block size, seed, origin, tolerance, and comparison mode; goldens are never automatically updated and every difference requires a documented decision. | Yes | Yes | Yes | P8F fixture plan, reviewed manifest, immutable capture workflow |
 | GLC-GOV-08 | The Kuaru consumer provides repeatable standalone Debug and Release entry points that keep build trees outside the core checkout, retain strict warnings and CTest, and pass an exact core commit plus tracked-source digest. This convenience tooling must not inject JUCE or make the core depend on Kuaru's checkout layout. | Yes | Yes | Yes | G1 shell syntax, option/error checks, and simulated Debug/Release CMake/CTest command verification |
 | GLC-GOV-09 | Before implementation begins, present a roadmap naming objective, requirement IDs, affected repositories/files, non-goals, acceptance checks and documentation updates; implementation requires a new `go` after that roadmap. | Yes | Yes | Yes | G2 roadmap presented and separately approved on 2026-09-28 |
+| GLC-GOV-10 | Public headers shall remain together under `include/gigante`; implementation files and private headers shall be grouped under `src/dsp`, `src/logger`, `src/metrics`, or `src/platform` according to architectural ownership. Physical grouping shall not change the single public namespace, public include paths, target boundaries, dependency direction, or runtime behavior. | Yes | Yes | Yes | G3 layout audit, strict Linux/Android builds, full CTest and Kuaru consumer build passed 2026-09-29 |
 
 ## Phase traceability
 
@@ -225,6 +226,7 @@ contract.
 | P12E | Kuaru adopts logger and build policy | P11, P15 | Kuaru parity, store-build silence | Deferred |
 | G1 | Add Kuaru-owned standalone core build/test helpers; no DSP or AHIO change | GOV-05–08 | Shell syntax, help/error paths, Debug/Release command propagation, `git diff --check` | Complete 2026-09-25 |
 | G2 | Remove premature concrete endpoint sources and establish the pre-implementation roadmap gate | O13–O19, O24; GOV-09 | Source/dependency audit, strict Debug/Release CTest, Kuaru consumer build, documentation and `git diff --check` | Complete 2026-09-28; strict Debug/Release CTest 6/6, Kuaru `sinukaru` target and source audit passed |
+| G3 | Group private implementation by DSP, logger, metrics and platform while preserving the flat public header API and existing targets | GOV-05, GOV-10 | Strict Linux matrices, Android target builds, full CTest, Kuaru consumer build, path audit and `git diff --check` | Complete 2026-09-29; no public include, namespace, target or behavior change |
 
 The vocoder and every DSP optimization/redesign require a later explicit phase
 and `go`; they are not implied by completing P8F–P8J.

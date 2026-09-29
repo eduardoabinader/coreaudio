@@ -39,6 +39,27 @@ Targets are logical ownership boundaries, not permission to introduce a FIFO,
 copy, block adapter, thread, or dependency. Optional targets must not change
 the public library's product neutrality.
 
+## Physical source layout
+
+Public headers remain together under `include/gigante`, preserving the flat
+consumer paths such as `<gigante/EffectsChain.h>` and `<gigante/Logger.h>`.
+Implementation files and private headers are grouped by responsibility:
+
+```text
+src/
+├── dsp/       EffectsChain facade and selected JUCE/neutral implementation
+├── logger/    Logger facade implementation and platform-selected sinks
+├── metrics/   bounded realtime metrics implementation
+└── platform/  host facts, endpoint policy/monitor and private OS helpers
+```
+
+The directories expose ownership; they do not introduce nested namespaces or
+new runtime selection. `giganteCore` continues to compile `dsp` and `metrics`,
+`giganteLog` compiles `logger`, and `gigantePlatform` compiles `platform`.
+Metrics depends on the DSP-owned `EffectsStageObserver` observation contract;
+DSP does not depend on the concrete metrics implementation. Logger and
+platform remain siblings with no dependency on `giganteCore`.
+
 ## Platform facts boundary
 
 `gigantePlatform` is a sibling of `giganteCore`; neither target links the

@@ -59,8 +59,8 @@ add_library(gigante::log ALIAS giganteLog)
 target_sources(
     giganteCore
     PRIVATE
-        src/EffectsChain.cpp
-        src/RealtimeMetrics.cpp
+        src/dsp/EffectsChain.cpp
+        src/metrics/RealtimeMetrics.cpp
         include/gigante/AudioBufferView.h
         include/gigante/EffectsChain.h
         include/gigante/EffectsStageObserver.h
@@ -71,9 +71,9 @@ target_sources(
 target_sources(
     gigantePlatform
     PRIVATE
-        src/EndpointMonitor.cpp
-        src/EndpointPolicy.cpp
-        src/HostFacts.cpp
+        src/platform/EndpointMonitor.cpp
+        src/platform/EndpointPolicy.cpp
+        src/platform/HostFacts.cpp
         include/gigante/EndpointMonitor.h
         include/gigante/EndpointPolicy.h
         include/gigante/HostFacts.h
@@ -82,7 +82,7 @@ target_sources(
 target_sources(
     giganteLog
     PRIVATE
-        src/LoggerCommon.cpp
+        src/logger/LoggerCommon.cpp
         include/gigante/Logger.h
 )
 
@@ -90,11 +90,11 @@ if(giganteLogLevelIndex GREATER 0)
     target_sources(
         giganteLog
         PRIVATE
-            src/Logger.cpp
-            src/PlatformLogSink.h
+            src/logger/Logger.cpp
+            src/logger/PlatformLogSink.h
     )
 else()
-    target_sources(giganteLog PRIVATE src/DisabledLogger.cpp)
+    target_sources(giganteLog PRIVATE src/logger/DisabledLogger.cpp)
 endif()
 
 target_include_directories(
@@ -117,32 +117,32 @@ if(ANDROID)
     target_sources(
         gigantePlatform
         PRIVATE
-            src/AndroidHostFacts.cpp
-            src/PosixHostFactsSupport.cpp
+            src/platform/AndroidHostFacts.cpp
+            src/platform/PosixHostFactsSupport.cpp
     )
     set(GIGANTE_PLATFORM_NAME "Android")
 elseif(CMAKE_SYSTEM_NAME STREQUAL "iOS")
     target_sources(
         gigantePlatform
         PRIVATE
-            src/AppleHostFactsSupport.cpp
-            src/IosHostFacts.cpp
+            src/platform/AppleHostFactsSupport.cpp
+            src/platform/IosHostFacts.cpp
     )
     set(GIGANTE_PLATFORM_NAME "iOS")
 elseif(APPLE)
     target_sources(
         gigantePlatform
         PRIVATE
-            src/AppleHostFactsSupport.cpp
-            src/MacOsHostFacts.cpp
+            src/platform/AppleHostFactsSupport.cpp
+            src/platform/MacOsHostFacts.cpp
     )
     set(GIGANTE_PLATFORM_NAME "macOS")
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_sources(
         gigantePlatform
         PRIVATE
-            src/LinuxHostFacts.cpp
-            src/PosixHostFactsSupport.cpp
+            src/platform/LinuxHostFacts.cpp
+            src/platform/PosixHostFactsSupport.cpp
     )
     set(GIGANTE_PLATFORM_NAME "Linux")
 else()
@@ -152,10 +152,10 @@ endif()
 
 if(giganteLogLevelIndex GREATER 0)
     if(ANDROID)
-        target_sources(giganteLog PRIVATE src/AndroidLogSink.cpp)
+        target_sources(giganteLog PRIVATE src/logger/AndroidLogSink.cpp)
         target_link_libraries(giganteLog PRIVATE log)
     else()
-        target_sources(giganteLog PRIVATE src/TerminalLogSink.cpp)
+        target_sources(giganteLog PRIVATE src/logger/TerminalLogSink.cpp)
     endif()
 endif()
 if(giganteLogLevelIndex GREATER 0)
@@ -163,12 +163,12 @@ if(giganteLogLevelIndex GREATER 0)
 endif()
 
 if(GIGANTE_JUCE_TARGET)
-    target_sources(giganteCore PRIVATE src/JuceEffectsChainImplementation.cpp)
+    target_sources(giganteCore PRIVATE src/dsp/JuceEffectsChainImplementation.cpp)
     target_link_libraries(giganteCore PRIVATE ${GIGANTE_JUCE_TARGET})
     target_compile_definitions(giganteCore PRIVATE GIGANTE_HAS_JUCE_DSP=1)
     target_link_libraries(gigantePlatform PRIVATE ${GIGANTE_JUCE_TARGET})
 else()
-    target_sources(giganteCore PRIVATE src/NeutralEffectsChainImplementation.cpp)
+    target_sources(giganteCore PRIVATE src/dsp/NeutralEffectsChainImplementation.cpp)
 endif()
 
 target_compile_features(giganteCore PUBLIC cxx_std_17)

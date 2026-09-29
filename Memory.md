@@ -621,3 +621,21 @@ REQ-P16 added: spdlog is the planned engine behind `gigante::Logger`, gated by t
   conditional, and that `git diff --check` passes in both repositories.
 - macOS `os_log`, Apple build evidence and product adoption remain unverified;
   P12B and REQ-P05/P10/P16 therefore remain partial.
+
+## 2026-09-29 — G3 implementation layout
+
+- Kept every public header under `include/gigante`, so consumer include paths
+  and the single `gigante` namespace remain unchanged. Moved implementation
+  files and private headers into `src/dsp`, `src/logger`, `src/metrics`, and
+  `src/platform` according to their existing target ownership.
+- The move is physical only: `giganteCore` still owns DSP plus metrics,
+  `giganteLog` still owns logging, and `gigantePlatform` still owns platform
+  facts and endpoint contracts. No new target edge, runtime selection,
+  compatibility header, algorithm or product integration was added.
+- Linux Debug/TRACE, Release/INFO and Release/OFF strict builds each passed
+  CTest 8/8. Android arm64/API 26 rebuilt `giganteCore`, `gigantePlatform`, and
+  `giganteLog` with NDK 29 and warnings as errors. The Kuaru `sinukaru`
+  consumer rebuilt and linked without any include change.
+- Source and CMake audits found no reference to an old flat implementation
+  path. Public-header isolation remains covered by the existing build targets;
+  `git diff --check` passed in both repositories.
