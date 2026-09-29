@@ -68,6 +68,18 @@ void testGoldenFormat()
     require(
         sanitized == "session=0 event=line_break_space_here a_key=line_value z_key=two_words",
         "sanitization or field ordering changed");
+
+    const std::vector<gigante::LogField> dynamicFields {
+        { "source", "java" },
+        { "operation", "wake lock" }
+    };
+    const auto dynamicLine = gigante::Logger::formatLine(
+        11,
+        "bridge warning",
+        std::span<const gigante::LogField>(dynamicFields));
+    require(
+        dynamicLine == "session=11 event=bridge_warning operation=wake_lock source=java",
+        "dynamic-field formatting changed");
 }
 
 void testRuntimeAndBuildPrecedence()

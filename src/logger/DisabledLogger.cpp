@@ -56,10 +56,23 @@ LogLevelState Logger::levelState() const noexcept
 }
 
 LogWriteResult Logger::log(
+    const LogLevel level,
+    const std::uint64_t sessionId,
+    const std::string_view event,
+    const std::initializer_list<LogField> fields)
+{
+    return log(
+        level,
+        sessionId,
+        event,
+        std::span<const LogField>(fields.begin(), fields.size()));
+}
+
+LogWriteResult Logger::log(
     const LogLevel,
     const std::uint64_t,
     const std::string_view,
-    const std::initializer_list<LogField>)
+    const std::span<const LogField>)
 {
     return { LogWriteStatus::filtered, {} };
 }

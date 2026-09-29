@@ -662,3 +662,22 @@ REQ-P16 added: spdlog is the planned engine behind `gigante::Logger`, gated by t
   log call was introduced. Java `Log.*`, JUCE `DBG`, a real-device store
   logcat capture, AHIO adoption, macOS native logging and shared `BuildPolicy`
   remain explicitly open.
+
+## 2026-09-29 — P12E-K2 dynamic fields and Kuaru Java binding
+
+- Added `std::span<const LogField>` overloads to `Logger::log` and
+  `Logger::formatLine`; the initializer-list surface delegates to the same
+  implementation. This keeps dynamic JNI fields inside the canonical core
+  formatter without adding a product or Java type to coreaudio.
+- Added deterministic dynamic-field coverage. Strict standalone Debug and
+  Release builds pass CTest 8/8, including canonical ordering/sanitization and
+  the existing compiled-out side-effect checks.
+- Kuaru owns the Java/JNI adapter and reuses its lifecycle-owned
+  `KuaruLogContext`. Its Java golden test, C++ adapter test, full Desktop build,
+  Android store Java/native compilation and R8 shrink pass. The shrunk DEX
+  removes the three routine `INFO`/`DEBUG` event names and retains the four
+  warning names; the native library exports the expected JNI symbol.
+- Kuaru's complete APK verification is not claimed: its pre-existing generated
+  `kuaru.kuaruconf` ordering alternates between a duplicate asset on an
+  incremental run and a missing packaged asset after Gradle clean. Device
+  logcat, P12E-K3 `DBG`, AHIO adoption and macOS native logging remain open.

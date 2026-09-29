@@ -246,9 +246,9 @@ spdlog worker, default logger, registry or realtime entry point is used.
 
 ### Kuaru consumer collaboration
 
-P12E-K1 is the first product integration of `giganteLog`. Kuaru owns a narrow
+P12E-K1/K2 are the first product integration of `giganteLog`. Kuaru owns a narrow
 `KuaruLogContext`; coreaudio does not know about the piano product, its release
-types, UI, synthesis, Java layer, or `SinuBuildPolicy`.
+types, UI, synthesis, Java classes, or `SinuBuildPolicy`.
 
 ```text
 Kuaru release type --------> GIGANTE_LOG_COMPILED_LEVEL
@@ -258,7 +258,8 @@ KuaruLogContext                    v
   |-- product session id          |-- LogConfiguration
   `-- lifetime owner              |     `-- LogSinkType
           |                       `-- selected platform sink
-          `---- injected ------> SinukaruPianoSynthesizer
+          |---- injected ------> SinukaruPianoSynthesizer
+          `---- JNI <---------- Kuaru GiganteLog.java
 ```
 
 Kuaru maps `store` to `WARN`, `demo` to `INFO`, and `dev`/`profiling` to
@@ -270,9 +271,16 @@ global logger lookup is introduced. The public sink selector is named
 `LogSinkType` because it selects the concrete sink type, not a behavioral
 "kind" policy.
 
-No log call is reachable from Kuaru's `processBlock`. Java binding and JUCE
-`DBG` migration are later product phases, and AHIO adoption remains outside
-this integration.
+P12E-K2 adds the general dynamic-field overload accepted as a
+`std::span<const LogField>`; the initializer-list API delegates to the same
+formatter. That lets Kuaru's JNI adapter convert a Java key/value array and
+still use the core's canonical sorting, sanitization, session identity and
+sink. Before Kuaru's native context exists, its product adapter may emit the
+same canonical format with the reserved session zero; that fallback and the
+JNI class remain product code, not coreaudio infrastructure.
+
+No log call is reachable from Kuaru's `processBlock`. JUCE `DBG` migration is
+a later Kuaru phase, and AHIO adoption remains outside this integration.
 
 ## Processing boundary
 

@@ -35,7 +35,18 @@ std::string Logger::formatLine(
     const std::string_view event,
     const std::initializer_list<LogField> fields)
 {
-    std::vector<LogField> sortedFields(fields);
+    return formatLine(
+        sessionId,
+        event,
+        std::span<const LogField>(fields.begin(), fields.size()));
+}
+
+std::string Logger::formatLine(
+    const std::uint64_t sessionId,
+    const std::string_view event,
+    const std::span<const LogField> fields)
+{
+    std::vector<LogField> sortedFields(fields.begin(), fields.end());
     std::stable_sort(
         sortedFields.begin(),
         sortedFields.end(),

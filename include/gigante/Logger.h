@@ -5,6 +5,7 @@
 #include <functional>
 #include <initializer_list>
 #include <memory>
+#include <span>
 #include <string>
 #include <string_view>
 
@@ -124,6 +125,11 @@ public:
         std::uint64_t sessionId,
         std::string_view event,
         std::initializer_list<LogField> fields = {});
+    [[nodiscard]] LogWriteResult log(
+        LogLevel level,
+        std::uint64_t sessionId,
+        std::string_view event,
+        std::span<const LogField> fields);
     [[nodiscard]] LogWriteResult flush();
 
     [[nodiscard]] static LogLevel compiledLevel() noexcept;
@@ -131,6 +137,10 @@ public:
         std::uint64_t sessionId,
         std::string_view event,
         std::initializer_list<LogField> fields = {});
+    [[nodiscard]] static std::string formatLine(
+        std::uint64_t sessionId,
+        std::string_view event,
+        std::span<const LogField> fields);
 
 private:
     class Implementation;

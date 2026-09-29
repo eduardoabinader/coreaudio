@@ -184,6 +184,19 @@ LogWriteResult Logger::log(
     const std::string_view event,
     const std::initializer_list<LogField> fields)
 {
+    return log(
+        level,
+        sessionId,
+        event,
+        std::span<const LogField>(fields.begin(), fields.size()));
+}
+
+LogWriteResult Logger::log(
+    const LogLevel level,
+    const std::uint64_t sessionId,
+    const std::string_view event,
+    const std::span<const LogField> fields)
+{
     const auto state = levelState();
     if (level == LogLevel::off
         || static_cast<unsigned int>(level) > static_cast<unsigned int>(state.effective))

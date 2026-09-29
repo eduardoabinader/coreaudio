@@ -44,10 +44,11 @@ uses an explicitly injected process session-id sequence, and compiles spdlog
 out entirely when the build ceiling is `OFF`. Linux and Android have build
 evidence; macOS remains unverified. P12B by itself does not authorize product
 adoption, an Apple `os_log` sink, or logging from a realtime callback.
-P12E-K1 subsequently authorizes and implements only Kuaru's C++ adoption:
+P12E-K1/K2 authorize and implement Kuaru's C++ and Java adoption:
 Kuaru owns the logger/session context, maps its release types to the build
-ceiling and links `gigante::log`. Java and `DBG` migration remain Kuaru phases;
-AHIO adoption, Apple work and realtime logging are still unauthorized.
+ceiling, links `gigante::log`, and routes its Java lifecycle/UI events through
+a product-owned JNI binding. `DBG` migration remains a Kuaru phase; AHIO
+adoption, Apple work and realtime logging are still unauthorized.
 
 ## Phase discipline
 
