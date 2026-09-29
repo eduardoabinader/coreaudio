@@ -681,3 +681,20 @@ REQ-P16 added: spdlog is the planned engine behind `gigante::Logger`, gated by t
   `kuaru.kuaruconf` ordering alternates between a duplicate asset on an
   incremental run and a missing packaged asset after Gradle clean. Device
   logcat, P12E-K3 `DBG`, AHIO adoption and macOS native logging remain open.
+
+## 2026-09-29 — P12E-K2B Kuaru packaging verification closeout
+
+- Kuaru separated its generated encrypted config from the asset root owned by
+  its copy task and added an incremental Gradle task that invokes the existing
+  cryptor before CMake configure and asset merge.
+- Clean and incremental Android store APK builds now pass `verifyStoreApk`.
+  The incremental generator is up to date and preserves the encrypted asset's
+  hash. The packaged DEX continues to omit routine Java log events and retain
+  warnings plus the explicit session-zero fallback.
+- This closeout changes no coreaudio implementation. Runtime device logcat,
+  Kuaru P12E-K3, AHIO adoption and macOS native logging remain open.
+- A Kuaru repository audit also found that its earlier P12E-K1 commit omitted
+  the required `KuaruLogContext` source/header/test files even though its build
+  graph references them. Local verification used the untracked files; Kuaru
+  must add them before clean-checkout reproducibility can be claimed. This is
+  a consumer-repository integrity issue, not a coreaudio source change.
