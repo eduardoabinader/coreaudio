@@ -571,7 +571,7 @@ REQ-P16 added: spdlog is the planned engine behind `gigante::Logger`, gated by t
 - MIT notices for spdlog and bundled fmt are in `THIRD_PARTY_NOTICES.md`.
   Informative Release archive sizes were: Linux `giganteLog` 96,900 bytes and
   spdlog 1,485,698 bytes; Linux `OFF` `giganteLog` 32,896 bytes with no
-  spdlog; Android arm64 `giganteLog` 1,108,282 bytes and spdlog 10,460,838
+  spdlog; Android arm64 `giganteLog` 1,108,722 bytes and spdlog 10,405,840
   bytes. These are static archives with toolchain/debug metadata, not final
   linked-product deltas, and are not gates.
 - Strict Linux Debug/TRACE, Release/INFO pinned-source and Release/OFF suites
@@ -582,3 +582,42 @@ REQ-P16 added: spdlog is the planned engine behind `gigante::Logger`, gated by t
   The Kuaru `sinukaru` target rebuilt and linked without adopting or linking
   `giganteLog`; AHIO was not changed. macOS and product adoption remain
   explicitly unverified, so P12B and REQ-P05/P10/P16 stay partial.
+
+## 2026-09-29 — DEV_REQ workflow
+
+- Before every implementation or documentation phase, present a reviewable
+  roadmap containing the phase scope, expected files, affected requirements,
+  planned verification and explicit exclusions.
+- Do not edit files or begin implementation until the user approves that
+  roadmap with a new explicit `go`. Read-only inspection and clarification may
+  precede approval when needed to prepare an accurate roadmap.
+- Execute only the approved phase. A `go` for one phase does not authorize the
+  next phase or expand its stated boundaries.
+- At phase completion, update the applicable requirements, architecture and
+  memory records with what is specified, implemented and actually verified.
+  Record remaining work and failed or interrupted checks without presenting
+  them as complete.
+- Run the verification declared in the roadmap, including `git diff --check`
+  in every changed repository, then stop and report the result before
+  proposing or beginning another phase.
+- Never create a commit. Provide a detailed commit message for the completed
+  diff when requested.
+- This approval gate is named the `DEV_REQ workflow` and applies to all future
+  coreaudio development phases.
+
+## 2026-09-29 — P12B final verification pass
+
+- Rebuilt the Kuaru `sinukaru` consumer against coreaudio revision `1516f90`
+  plus the documentation working-tree digest. The executable linked
+  successfully without building or linking `giganteLog`; logger adoption
+  remains a separate phase.
+- Recreated the Linux Debug/TRACE, Release/INFO and Release/OFF configurations
+  with warnings as errors. Each configuration passed CTest 8/8. The enabled
+  configurations used the exact spdlog 1.17.0 tag commit; the OFF build tree
+  contained no spdlog path or target artifact.
+- Rebuilt `giganteLog` for Android arm64, API 26, with NDK 29 and warnings as
+  errors. Final archive sizes are the values recorded in the P12B entry above.
+- Confirmed that the public logger header contains no JUCE, spdlog or platform
+  conditional, and that `git diff --check` passes in both repositories.
+- macOS `os_log`, Apple build evidence and product adoption remain unverified;
+  P12B and REQ-P05/P10/P16 therefore remain partial.

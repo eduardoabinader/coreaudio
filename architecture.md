@@ -769,8 +769,9 @@ the actual fixed effects chain rather than only its bypass facade.
 
 Status: Revised. The endpoint value/policy portion remains implemented and
 verified in P11C as an injected neutral contract; concrete platform endpoint
-sources are deferred by the 2026-09-28 scope decision. The logger portion
-remains proposed for P12B.
+sources are deferred by the 2026-09-28 scope decision. The product-neutral
+logger foundation is implemented and Linux/Android-verified in P12B; native
+macOS `os_log`, Apple verification and product adoption remain open.
 
 JUCE remains the only audio backend. If a caller injects endpoint facts, the
 shared declarative policy can evaluate them; `gigantePlatform` does not
