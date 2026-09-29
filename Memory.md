@@ -698,3 +698,17 @@ REQ-P16 added: spdlog is the planned engine behind `gigante::Logger`, gated by t
   graph references them. Local verification used the untracked files; Kuaru
   must add them before clean-checkout reproducibility can be claimed. This is
   a consumer-repository integrity issue, not a coreaudio source change.
+
+## 2026-09-29 — P12E-K3 Kuaru JUCE diagnostic closeout
+
+- Kuaru migrated ten non-realtime JUCE `DBG` sites that already had an explicit
+  `KuaruLogContext` and classified 70 bootstrap/implementation traces as
+  intentionally retained dev-only diagnostics. Three textual references are
+  commented templates, not calls. An executable source inventory rejects new
+  or moved unclassified sites.
+- Desktop dev plus both Kuaru tests pass. Android dev proves all ten structured
+  events compile into the native library; Android Store passes APK verification
+  and contains none of their names under its `WARN` build ceiling. Callback and
+  debug-save paths remain unchanged.
+- No coreaudio implementation or AHIO file changed. Kuaru runtime Store logcat,
+  AHIO adoption and macOS native logging remain open.

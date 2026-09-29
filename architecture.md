@@ -279,8 +279,10 @@ sink. Before Kuaru's native context exists, its product adapter may emit the
 same canonical format with the reserved session zero; that fallback and the
 JNI class remain product code, not coreaudio infrastructure.
 
-No log call is reachable from Kuaru's `processBlock`. JUCE `DBG` migration is
-a later Kuaru phase, and AHIO adoption remains outside this integration.
+No log call is reachable from Kuaru's `processBlock`. Kuaru P12E-K3 migrated
+ten non-realtime JUCE diagnostics and intentionally retained 70 dev-only
+bootstrap/implementation traces behind an executable inventory; AHIO adoption
+remains outside this integration.
 
 ## Processing boundary
 
