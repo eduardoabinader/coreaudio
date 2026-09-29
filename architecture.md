@@ -244,6 +244,36 @@ but its required `os_log` adapter and Apple build evidence remain a later
 step. iOS is outside the current supported product focus. No asynchronous
 spdlog worker, default logger, registry or realtime entry point is used.
 
+### Kuaru consumer collaboration
+
+P12E-K1 is the first product integration of `giganteLog`. Kuaru owns a narrow
+`KuaruLogContext`; coreaudio does not know about the piano product, its release
+types, UI, synthesis, Java layer, or `SinuBuildPolicy`.
+
+```text
+Kuaru release type --------> GIGANTE_LOG_COMPILED_LEVEL
+                                   |
+KuaruLogContext                    v
+  |-- SessionIdSequence -----> gigante::Logger
+  |-- product session id          |-- LogConfiguration
+  `-- lifetime owner              |     `-- LogSinkType
+          |                       `-- selected platform sink
+          `---- injected ------> SinukaruPianoSynthesizer
+```
+
+Kuaru maps `store` to `WARN`, `demo` to `INFO`, and `dev`/`profiling` to
+`TRACE` before adding the coreaudio subdirectory. `KuaruLogContext` requests
+`TRACE` at runtime, so the core's `min(build, runtime)` rule makes the build
+ceiling authoritative. The context and synthesizer use ordinary lifetime
+composition and references; no product logger is stored by coreaudio and no
+global logger lookup is introduced. The public sink selector is named
+`LogSinkType` because it selects the concrete sink type, not a behavioral
+"kind" policy.
+
+No log call is reachable from Kuaru's `processBlock`. Java binding and JUCE
+`DBG` migration are later product phases, and AHIO adoption remains outside
+this integration.
+
 ## Processing boundary
 
 The implemented processor contract has four explicit concepts:

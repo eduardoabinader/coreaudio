@@ -77,7 +77,7 @@ public:
           requestedLevel(configuration.runtimeLevel)
     {
         std::shared_ptr<spdlog::sinks::sink> sink;
-        if (configuration.sinkKind == LogSinkKind::callback)
+        if (configuration.sinkType == LogSinkType::callback)
         {
             if (! callback)
                 throw std::invalid_argument("callback sink requires a callback");

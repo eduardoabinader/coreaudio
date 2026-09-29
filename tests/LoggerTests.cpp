@@ -32,7 +32,7 @@ void require(const bool condition, const char* const message)
 {
     gigante::LogConfiguration configuration;
     configuration.name = "capture";
-    configuration.sinkKind = gigante::LogSinkKind::callback;
+    configuration.sinkType = gigante::LogSinkType::callback;
     configuration.runtimeLevel = runtimeLevel;
     configuration.flushLevel = gigante::LogLevel::error;
     return gigante::Logger(
@@ -207,7 +207,7 @@ void testConcurrentLinesDoNotInterleave()
 void testInvalidSinkConfiguration()
 {
     gigante::LogConfiguration configuration;
-    configuration.sinkKind = gigante::LogSinkKind::callback;
+    configuration.sinkType = gigante::LogSinkType::callback;
     gigante::SessionIdSequence sessionIds;
     bool threw = false;
     try
@@ -225,7 +225,7 @@ void testPlatformSinkLifecycle()
 {
     gigante::LogConfiguration configuration;
     configuration.name = "gigante-log-test";
-    configuration.sinkKind = gigante::LogSinkKind::platformDefault;
+    configuration.sinkType = gigante::LogSinkType::platformDefault;
     configuration.colorMode = gigante::LogColorMode::never;
     configuration.runtimeLevel = gigante::LogLevel::off;
     gigante::SessionIdSequence sessionIds;

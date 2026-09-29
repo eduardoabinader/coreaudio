@@ -639,3 +639,26 @@ REQ-P16 added: spdlog is the planned engine behind `gigante::Logger`, gated by t
 - Source and CMake audits found no reference to an old flat implementation
   path. Public-header isolation remains covered by the existing build targets;
   `git diff --check` passed in both repositories.
+
+## 2026-09-29 — P12E-K1 Kuaru C++ logger consumer
+
+- Renamed the public sink selector from `LogSinkKind`/`sinkKind` to the more
+  precise `LogSinkType`/`sinkType`. No compatibility alias was retained because
+  Kuaru is the first product consumer and the API has not been released.
+- Kuaru now links `gigante::log` on Desktop and Android and owns the injected
+  `SessionIdSequence`, logger and product session through `KuaruLogContext`.
+  Coreaudio does not own product state and `giganteCore` still does not depend
+  on logging.
+- The product supplies the provisional ceiling required by REQ-P15:
+  store→WARN, demo→INFO and dev/profiling→TRACE. The Android store compile
+  database records `GIGANTE_LOG_COMPILED_LEVEL=2`; its final shared library
+  retains the sampled warning event and omits sampled INFO events.
+- The Kuaru adapter test verifies session allocation, canonical line output,
+  native level propagation and flush. The full Desktop dev executable and
+  Android arm64 store shared library build successfully. Coreaudio's strict
+  TRACE, INFO and OFF configurations each still pass CTest 8/8 after the public
+  rename.
+- Kuaru's audio callback and debug sidecar were not changed, and no callback
+  log call was introduced. Java `Log.*`, JUCE `DBG`, a real-device store
+  logcat capture, AHIO adoption, macOS native logging and shared `BuildPolicy`
+  remain explicitly open.

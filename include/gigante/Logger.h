@@ -39,7 +39,7 @@ enum class LogColorMode : std::uint8_t
     never
 };
 
-enum class LogSinkKind : std::uint8_t
+enum class LogSinkType : std::uint8_t
 {
     platformDefault,
     callback
@@ -54,7 +54,7 @@ struct LogField
 struct LogConfiguration
 {
     std::string name { "gigante" };
-    LogSinkKind sinkKind { LogSinkKind::platformDefault };
+    LogSinkType sinkType { LogSinkType::platformDefault };
     LogColorMode colorMode { LogColorMode::automatic };
     LogLevel runtimeLevel { LogLevel::info };
     LogLevel flushLevel { LogLevel::error };

@@ -16,9 +16,9 @@ public:
         : sessionIds(sessionIdsToUse),
           requestedLevel(configuration.runtimeLevel)
     {
-        if (configuration.sinkKind == LogSinkKind::callback && ! callback)
+        if (configuration.sinkType == LogSinkType::callback && ! callback)
             throw std::invalid_argument("callback sink requires a callback");
-        if (configuration.sinkKind == LogSinkKind::platformDefault && callback)
+        if (configuration.sinkType == LogSinkType::platformDefault && callback)
             throw std::invalid_argument("platform sink does not accept a callback");
     }
 
