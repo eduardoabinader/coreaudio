@@ -197,9 +197,9 @@ gigantePlatform  HostFactsSource, AudioEndpoint, AudioBus, EndpointInventory,
                  EndpointPolicy, EndpointMonitor and EndpointChangeSource
                  (present as neutral/injected contracts); no concrete endpoint
                  source; SessionPreparation remains planned
-giganteLog       Logger with levels, per-platform backends, build-policy gating;
-                 Linux/Android foundation present; macOS native sink and
-                 BuildPolicy later
+giganteLog       Logger with levels and per-platform backends; Linux/Android
+                 foundation present; product-supplied compile ceiling remains
+                 while macOS native sink and shared BuildPolicy are deferred
 ```
 
 `giganteCore` links neither. The platform layer supplies facts and never
@@ -246,7 +246,7 @@ spdlog worker, default logger, registry or realtime entry point is used.
 
 ### Kuaru consumer collaboration
 
-P12E-K1/K2 are the first product integration of `giganteLog`. Kuaru owns a narrow
+P12E-K1/K2/K3 are the first product integration of `giganteLog`. Kuaru owns a narrow
 `KuaruLogContext`; coreaudio does not know about the piano product, its release
 types, UI, synthesis, Java classes, or `SinuBuildPolicy`.
 
@@ -734,11 +734,11 @@ never acquire hardware or parse product configuration.
 
 ### ADR-001 — Independent neutral core
 
-Status: Accepted; P8G/P8H Kuaru integration, controlled render-budget evidence,
-and the Kuaru gitlink recorded at `ec8128820fbe0ae36dff12d067578bb3ad5513e5`
-are verified locally. The checked-out core is ahead during the current phase,
-so its later commit still requires an exact Kuaru gitlink update. Remote
-reachability was not reverified; AHIO adoption remains P8I.
+Status: Accepted; P8G/P8H Kuaru integration and controlled render-budget
+evidence are verified locally. Kuaru records coreaudio `8ee15a7`, while the
+current checkout is `236630a`; clean-checkout verification therefore requires
+a later explicit gitlink update. Remote reachability was not reverified; AHIO
+adoption remains P8I.
 
 The library is independently versioned and consumed in one direction by Kuaru
 and AHIO at pinned revisions. Product adapters remain with their products.

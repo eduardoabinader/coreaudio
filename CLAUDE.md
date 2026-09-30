@@ -16,9 +16,10 @@ P8F is complete. P8G implementation, bit-exact parity, and controlled
 render-budget evidence are complete. On 2026-09-25 the user explicitly
 authorized P8H despite the then-open publication gate. P8H began at
 `396ce772a7ddb3117638504eee7733ef256d9ff6`; allocation verification and G1
-documentation followed, and Kuaru currently pins core commit
-`b39d375d2766920485175fd3cd2e420005e62ce3`. Remote reachability was not
-reverified in this workspace. Do not begin P8K/P8I/P8J without a new `go`.
+documentation followed. Kuaru currently records core commit `8ee15a7`, while
+this checkout is at `236630a`; do not claim exact clean-checkout pinning until
+that gitlink is deliberately reconciled. Remote reachability was not reverified
+in this workspace. Do not begin P8K/P8I/P8J without a new `go`.
 On 2026-09-25 the user further clarified that AHIO requirements are not closed:
 until the user explicitly says they are closed, `go` applies only to
 Kuaru/coreaudio work and must not start an AHIO stream or DSP integration phase.
@@ -44,11 +45,13 @@ uses an explicitly injected process session-id sequence, and compiles spdlog
 out entirely when the build ceiling is `OFF`. Linux and Android have build
 evidence; macOS remains unverified. P12B by itself does not authorize product
 adoption, an Apple `os_log` sink, or logging from a realtime callback.
-P12E-K1/K2 authorize and implement Kuaru's C++ and Java adoption:
+P12E-K1/K2/K3 authorize and implement Kuaru's C++, Java and JUCE-diagnostic adoption:
 Kuaru owns the logger/session context, maps its release types to the build
 ceiling, links `gigante::log`, and routes its Java lifecycle/UI events through
-a product-owned JNI binding. `DBG` migration remains a Kuaru phase; AHIO
-adoption, Apple work and realtime logging are still unauthorized.
+a product-owned JNI binding. Runtime Store device logcat remains open. On
+2026-09-30 the user deferred P12D, so `SinuBuildPolicy` remains product-owned
+and the verified provisional log-ceiling mapping stays in force. AHIO adoption,
+Apple work and realtime logging are still unauthorized.
 
 ## Phase discipline
 

@@ -712,3 +712,18 @@ REQ-P16 added: spdlog is the planned engine behind `gigante::Logger`, gated by t
   debug-save paths remain unchanged.
 - No coreaudio implementation or AHIO file changed. Kuaru runtime Store logcat,
   AHIO adoption and macOS native logging remain open.
+
+## 2026-09-30 — P12D deferred and P12E status reconciled
+
+- The user chose to leave shared `gigante::BuildPolicy` extraction for later.
+  P12D and REQ-P12 to REQ-P14 remain specified but unimplemented;
+  `SinuBuildPolicy` stays Kuaru-owned and the verified product-supplied log
+  ceiling from REQ-P15 remains authoritative. Resuming P12D requires a new
+  roadmap and `go`.
+- P12E status now reflects the completed K1/K2/K3 source work, tests and
+  Desktop/Android artifact audits. Runtime Store device logcat is the only
+  remaining Kuaru logging evidence; AHIO adoption and Apple work remain outside
+  the authorized boundary.
+- Kuaru's committed gitlink records coreaudio `8ee15a7`, while the working tree
+  checks out `236630a`. No gitlink was changed implicitly; exact clean-checkout
+  verification remains open until a deliberate parent-repository update.
