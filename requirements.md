@@ -182,6 +182,26 @@ Product-neutral part of AHIO Group P. `giganteLog` is separate from `giganteCore
 | REQ-P15 | Until P12 to P14 are approved and implemented, the logger shall take its ceiling from a small log-policy value supplied by the product at build time, so the logger can be delivered without waiting for the shared build policy. Moving `SinuBuildPolicy` out of Kuaru is a separate later phase with its own `go`, parity evidence and a pinned-revision change. | Yes | Yes | Yes | P12E-K1 supplies store→WARN, demo→INFO and dev/profiling→TRACE from Kuaru before adding coreaudio; Desktop dev, Android dev and Store artifacts verify the effective definitions. This provisional product mapping remains the approved policy while P12D is deferred |
 
 
+## Group Q — Render capability
+
+Product-neutral platform layer, alongside Group O. Unlike Group O (audio
+endpoint facts), this group is not derived from AHIO scope: it is an
+anticipated-reuse addition, approved 2026-10-16 as an explicit exception to
+the default "demonstrably required by this library today" bar, because no
+current Kuaru or AHIO consumer needs it yet. Its first and only consumer so
+far is `gst-harness` (`gstools` repository, a separate product), which needs
+to know whether the host can actually render video before choosing how to
+initialize its own windowing toolkit.
+
+### Q.1 — Generic capability contract
+
+| ID | Requirement | Specified | Implemented | Verified | Phase / evidence |
+|---|---|---:|---:|---:|---|
+| REQ-Q01 | The platform layer shall expose a generic, extensible capability-detection contract rather than a one-off flag: a capability domain is an enum, and `HostFacts` carries the detected set for that domain as a `std::vector`. A later capability domain is added by extending or adding an enum and one probe function per `*HostFactsSupport` platform family, following the existing `PosixHostFactsSupport`/`AppleHostFactsSupport` pattern, not by inventing a parallel mechanism. | Yes | Yes | Yes | P13B: `RenderCapability` enum plus `HostFacts::renderCapabilities` |
+| REQ-Q02 | Render capability (`audio`, `video`) is the first concrete instance. Detection shall be observed at read time, never assumed from platform identity: a VM or container may run macOS or Linux and still lack video. Linux/POSIX: video is detected from a reachable Wayland or X11 display-server socket (file presence, not a full protocol handshake, so no client-library dependency is added). macOS: video is detected from `CGSessionCopyCurrentDictionary`'s `kCGSessionOnConsoleKey` (a real, logged-in console/GUI session), linking `ApplicationServices` only for the macOS build target. iOS reports both unconditionally, consistent with a handheld device always having a built-in screen and speaker. Audio is always reported on POSIX and Apple hosts, since a null/dummy audio sink is always available even without real hardware. | Yes | Yes | Partial | P13B: POSIX and macOS probes implemented and unit-tested; macOS probe additionally confirmed by a standalone run on a real interactive console session (`audio video` both detected); Linux socket-presence path exercised only by the empty-vector/no-display-set case locally, not against a real Wayland/X11 session; iOS and Android have no device verification |
+| REQ-Q03 | No public header or caller shall contain a platform conditional (REQ-O03/REQ-M12). An unsupported, undetectable, or unprobed case shall report that capability absent from the vector, never guessed as present. | Yes | Yes | Yes | P13B: `detectPosixRenderCapabilities`/`detectAppleRenderCapabilities` are the only platform-conditional code, confined to their own `*HostFactsSupport` translation units; `testUnprobedRenderCapabilitiesStayEmpty` guards the default-constructed case |
+| REQ-Q04 | This phase adds the fact only. It shall not add Kuaru/AHIO consumer wiring, Android or iOS device-verified probes, or any other capability domain beyond render capability. | Yes | Yes | Yes | P13B: no Kuaru/AHIO call site changed; `AndroidHostFacts` unmodified (empty vector, explicit scope decision, not an oversight) |
+
 ## Repository governance requirements
 
 These IDs cover repository practice not owned by the product-facing Group N
@@ -227,6 +247,8 @@ contract.
 | G1 | Add Kuaru-owned standalone core build/test helpers; no DSP or AHIO change | GOV-05–08 | Shell syntax, help/error paths, Debug/Release command propagation, `git diff --check` | Complete 2026-09-25 |
 | G2 | Remove premature concrete endpoint sources and establish the pre-implementation roadmap gate | O13–O19, O24; GOV-09 | Source/dependency audit, strict Debug/Release CTest, Kuaru consumer build, documentation and `git diff --check` | Complete 2026-09-28; strict Debug/Release CTest 6/6, Kuaru `sinukaru` target and source audit passed |
 | G3 | Group private implementation by DSP, logger, metrics and platform while preserving the flat public header API and existing targets | GOV-05, GOV-10 | Strict Linux matrices, Android target builds, full CTest, Kuaru consumer build, path audit and `git diff --check` | Complete 2026-09-29; no public include, namespace, target or behavior change |
+| P13A | Specify render capability (Group Q); anticipated-reuse exception to the default scope bar, approved explicitly, no Kuaru/AHIO consumer | Q01–Q04 | Requirements review | Specified 2026-10-16 |
+| P13B | Generic capability-detection contract plus render capability: `RenderCapability` enum, `HostFacts::renderCapabilities`, POSIX (Wayland/X11 socket presence) and Apple (`CGSessionCopyCurrentDictionary`, iOS unconditional) probes | Q01–Q04 | `gigantePlatformTests` build/run, standalone real-session probe run, `git diff --check` | Complete 2026-10-16 on macOS: `gigantePlatformTests` passes (including new duplicate-free/audio-always/name-stability/empty-default cases), and a standalone probe on a real interactive console session reported `audio video` both detected. Linux build/probe and Android/iOS device verification not performed locally |
 
 The vocoder and every DSP optimization/redesign require a later explicit phase
 and `go`; they are not implied by completing P8F–P8J.

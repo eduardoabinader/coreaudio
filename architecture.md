@@ -87,6 +87,26 @@ them as `unavailable`; it never substitutes a plausible core count, memory
 size, architecture, or fingerprint. Host reads and string formatting are
 non-realtime operations and must not be called from an audio callback.
 
+`HostFacts` also carries `renderCapabilities`, a generic, extensible
+capability-detection facility rather than a one-off rendering flag: a
+capability domain is an enum (`RenderCapability`, starting with `audio` and
+`video`), and a later domain is added the same way, by extending the enum
+and adding one probe function per `*HostFactsSupport` family, not by
+inventing a parallel mechanism. Detection follows the same "observed, not
+assumed from platform identity" rule as every other host fact: a VM or CI
+runner may run macOS or Linux and still have no reachable display, so
+`audio` is always reported (a POSIX or Apple host can always render to a
+null device) while `video` is reported only when actually detected —
+`PosixHostFactsSupport` checks for a reachable Wayland or X11 socket (file
+presence, not a full protocol handshake, so neither target needs a
+client-library dependency); `AppleHostFactsSupport` checks
+`CGSessionCopyCurrentDictionary`'s `kCGSessionOnConsoleKey` on macOS (the
+`ApplicationServices` framework, linked only for the macOS build target, not
+iOS) and reports both unconditionally on iOS, which always has a built-in
+screen and speaker. An undetectable or unprobed case is simply absent from
+the vector — `AndroidHostFacts` has no probe yet and leaves it empty, by
+explicit scope decision, not an oversight — never guessed as present.
+
 ### Host-facts collaboration and design patterns
 
 The host-facts boundary combines a factory method, strategy, and adapter with

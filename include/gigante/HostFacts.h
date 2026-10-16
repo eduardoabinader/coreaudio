@@ -4,6 +4,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace gigante
 {
@@ -15,6 +16,20 @@ enum class RealtimeSchedulingState
     rejected,
     unavailable
 };
+
+// Generic, extensible platform capability detection: a capability domain
+// (rendering is the first) is an enum whose values are detected at read
+// time by one probe per platform family, never assumed from platform
+// identity alone. A VM or container may run macOS or Linux and still lack
+// video; an undetectable case is absent from the vector, never guessed.
+enum class RenderCapability
+{
+    audio,
+    video
+};
+
+[[nodiscard]] const char* renderCapabilityName(
+    RenderCapability capability) noexcept;
 
 struct RealtimeSchedulingOutcome
 {
@@ -35,6 +50,7 @@ struct HostFacts
     std::optional<std::string> buildFingerprint;
     std::string sourceRevision;
     RealtimeSchedulingOutcome realtimeScheduling;
+    std::vector<RenderCapability> renderCapabilities;
 };
 
 class HostFactsSource

@@ -1,6 +1,7 @@
 #include "gigante/HostFacts.h"
 #include "gigante/Revision.h"
 
+#include <algorithm>
 #include <iostream>
 #include <string>
 
@@ -66,6 +67,20 @@ void testCurrentPlatformFacts()
            "observed scheduling priority must be preserved");
     expect(facts.realtimeScheduling.detail == scheduling.detail,
            "scheduling detail must be preserved");
+
+    const bool hasAudioCapability = std::find(
+        facts.renderCapabilities.begin(), facts.renderCapabilities.end(),
+        gigante::RenderCapability::audio) != facts.renderCapabilities.end();
+    expect(hasAudioCapability,
+           "audio render capability must always be reported on a real host");
+    const auto duplicateAudio = std::count(
+        facts.renderCapabilities.begin(), facts.renderCapabilities.end(),
+        gigante::RenderCapability::audio);
+    const auto duplicateVideo = std::count(
+        facts.renderCapabilities.begin(), facts.renderCapabilities.end(),
+        gigante::RenderCapability::video);
+    expect(duplicateAudio <= 1 && duplicateVideo <= 1,
+           "render capabilities must not contain duplicate entries");
 
     const auto description = gigante::formatHostFacts(facts);
     expect(description.find(facts.platformName + "/") == 0U,
@@ -141,6 +156,21 @@ void testNamesAreStable()
                gigante::RealtimeSchedulingState::unavailable)}
                == "unavailable",
            "unavailable scheduling name must be stable");
+
+    expect(std::string{gigante::renderCapabilityName(
+               gigante::RenderCapability::audio)} == "audio",
+           "audio render capability name must be stable");
+    expect(std::string{gigante::renderCapabilityName(
+               gigante::RenderCapability::video)} == "video",
+           "video render capability name must be stable");
+}
+
+void testUnprobedRenderCapabilitiesStayEmpty()
+{
+    const gigante::HostFacts facts;
+    expect(facts.renderCapabilities.empty(),
+           "a default-constructed HostFacts must not assume any render "
+           "capability");
 }
 
 } // namespace
@@ -151,6 +181,7 @@ int main()
     testLifecycleIsExplicitAndRepeatable();
     testUnavailableFactsRemainExplicit();
     testNamesAreStable();
+    testUnprobedRenderCapabilitiesStayEmpty();
 
     if (failureCount != 0)
     {

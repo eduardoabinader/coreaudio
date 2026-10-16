@@ -23,6 +23,19 @@ const char* realtimeSchedulingStateName(
     return "unavailable";
 }
 
+const char* renderCapabilityName(const RenderCapability capability) noexcept
+{
+    switch (capability)
+    {
+        case RenderCapability::audio:
+            return "audio";
+        case RenderCapability::video:
+            return "video";
+    }
+
+    return "unavailable";
+}
+
 std::string formatHostFacts(const HostFacts& facts)
 {
     const auto gibibytes = facts.physicalMemoryBytes.has_value()

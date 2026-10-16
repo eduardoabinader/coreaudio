@@ -727,3 +727,56 @@ REQ-P16 added: spdlog is the planned engine behind `gigante::Logger`, gated by t
 - Kuaru's committed gitlink records coreaudio `8ee15a7`, while the working tree
   checks out `236630a`. No gitlink was changed implicitly; exact clean-checkout
   verification remains open until a deliberate parent-repository update.
+
+## 2026-10-16 — P13A/P13B render capability (Group Q), an anticipated-reuse exception
+
+- This phase did not originate from AHIO scope or a current Kuaru/AHIO need.
+  It originated from a separate product, `gst-harness` in the `gstools`
+  repository, which needs to know whether the host can actually render video
+  before deciding how to initialize its own Qt application object (a real
+  windowing platform plugin needs a working display; a headless CLI/daemon
+  mode does not and must not require one). The user explicitly decided this
+  belongs in coreaudio as a generic, reusable platform fact, overriding the
+  default "demonstrably required by this library today" bar as a deliberate
+  exception, not because any current consumer needs it.
+- The user also directed that the contract be generic and extensible from the
+  start, not a one-off video flag: a capability domain is an enum, and a
+  later domain is added the same way (extend/add an enum, add one probe per
+  `*HostFactsSupport` platform family), matching the pattern this layer
+  already uses for `HostFacts` itself rather than inventing a new mechanism.
+- Implemented: `RenderCapability{audio, video}` in `include/gigante/HostFacts.h`;
+  `HostFacts::renderCapabilities` (`std::vector`, empty when unprobed/
+  undetectable, never guessed present); `detectPosixRenderCapabilities()`
+  (audio always present; video from a reachable Wayland socket at
+  `$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY` or an X11 socket at
+  `/tmp/.X11-unix/X<N>` parsed from `$DISPLAY` — file presence, not a full
+  protocol handshake, so no Wayland/X11 client library was added);
+  `detectAppleRenderCapabilities()` (macOS: `CGSessionCopyCurrentDictionary`'s
+  `kCGSessionOnConsoleKey`, linking `ApplicationServices` only for the macOS
+  CMake branch, not iOS; iOS: both unconditionally, since a handheld device
+  always has a built-in screen and speaker). `AndroidHostFacts` was not
+  touched — explicit scope decision, not an oversight; it reports an empty
+  vector until a later phase adds a probe.
+- Verification on macOS (AppleClang 21, CMake standalone configure,
+  2026-10-16): `gigantePlatformTests` built clean with no new warnings and
+  passed, including the new cases (audio always present, no duplicate
+  entries, `renderCapabilityName` stability for both values, a
+  default-constructed `HostFacts` has an empty `renderCapabilities`). Beyond
+  the test binary, a separate standalone probe program (linked directly
+  against `libgigantePlatform.a` plus `ApplicationServices`) was built and run
+  on this real interactive console session and printed `platform=macOS
+  capabilities=audio video` — confirming the macOS probe against real ground
+  truth, not only that the test suite's loose assertion passed.
+- Not verified: the POSIX probe was only exercised in the "no display set"
+  path on this macOS machine (no Linux host with a real Wayland/X11 session
+  available locally); REQ-Q02 is recorded as Verified: Partial for exactly
+  this reason. Android and iOS have no device verification. No Kuaru or AHIO
+  call site was changed; this phase added the fact only, per REQ-Q04.
+- Full-suite confirmation: a standalone configure without `-DCMAKE_CXX_STANDARD=20`
+  left `giganteLog`'s `std::span` usage unbuildable (a pre-existing C++17/20
+  gap, unrelated to this phase — `gigantePlatformTests` alone built and passed
+  under both configures). Reconfiguring with `-DCMAKE_CXX_STANDARD=20
+  -DCMAKE_CXX_STANDARD_REQUIRED=ON` built and passed the entire suite, 8/8:
+  `giganteCoreTests`, `giganteGoldenVectorTests`, `giganteGoldenHashVerification`,
+  `gigantePlatformTests`, `giganteEndpointPolicyTests`, `giganteEndpointMonitorTests`,
+  `giganteLogTests`, `giganteLogCompiledOutTests`.

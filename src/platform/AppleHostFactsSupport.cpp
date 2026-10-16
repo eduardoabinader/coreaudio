@@ -8,10 +8,36 @@
 #include <string>
 #include <sys/sysctl.h>
 
+#include <TargetConditionals.h>
+
+#if TARGET_OS_OSX
+#include <ApplicationServices/ApplicationServices.h>
+#endif
+
 namespace gigante::platformDetail
 {
 namespace
 {
+
+#if TARGET_OS_OSX
+// kCGSessionOnConsoleKey is true only for a real, logged-in console/GUI
+// session; a headless macOS VM, CI runner, or a user switched out via Fast
+// User Switching reports false here, which is the actual distinction this
+// capability exists to make (not "is this macOS").
+bool hasConsoleSession()
+{
+    CFDictionaryRef sessionInfo = CGSessionCopyCurrentDictionary();
+    if (sessionInfo == nullptr)
+        return false;
+
+    const void* onConsoleValue =
+        CFDictionaryGetValue(sessionInfo, kCGSessionOnConsoleKey);
+    const bool onConsole = onConsoleValue != nullptr
+        && CFBooleanGetValue(static_cast<CFBooleanRef>(onConsoleValue));
+    CFRelease(sessionInfo);
+    return onConsole;
+}
+#endif
 
 template <typename Value>
 std::optional<Value> readSysctlValue(const char* const name)
@@ -41,6 +67,18 @@ std::optional<std::string> readSysctlString(const char* const name)
 
 } // namespace
 
+std::vector<RenderCapability> detectAppleRenderCapabilities()
+{
+#if TARGET_OS_OSX
+    std::vector<RenderCapability> capabilities{RenderCapability::audio};
+    if (hasConsoleSession())
+        capabilities.push_back(RenderCapability::video);
+    return capabilities;
+#else
+    return {RenderCapability::audio, RenderCapability::video};
+#endif
+}
+
 HostFacts readAppleHostFacts(
     const char* const platformName,
     const RealtimeSchedulingOutcome& realtimeScheduling)
@@ -53,6 +91,7 @@ HostFacts readAppleHostFacts(
     facts.buildFingerprint = readSysctlString("kern.osversion");
     facts.sourceRevision = revision;
     facts.realtimeScheduling = realtimeScheduling;
+    facts.renderCapabilities = detectAppleRenderCapabilities();
     return facts;
 }
 

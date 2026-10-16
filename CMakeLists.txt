@@ -136,6 +136,8 @@ elseif(APPLE)
             src/platform/AppleHostFactsSupport.cpp
             src/platform/MacOsHostFacts.cpp
     )
+    find_library(GIGANTE_APPLICATION_SERVICES_FRAMEWORK ApplicationServices REQUIRED)
+    target_link_libraries(gigantePlatform PRIVATE ${GIGANTE_APPLICATION_SERVICES_FRAMEWORK})
     set(GIGANTE_PLATFORM_NAME "macOS")
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_sources(
