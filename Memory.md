@@ -780,3 +780,53 @@ REQ-P16 added: spdlog is the planned engine behind `gigante::Logger`, gated by t
   `giganteCoreTests`, `giganteGoldenVectorTests`, `giganteGoldenHashVerification`,
   `gigantePlatformTests`, `giganteEndpointPolicyTests`, `giganteEndpointMonitorTests`,
   `giganteLogTests`, `giganteLogCompiledOutTests`.
+
+
+## 2026-10-30 — iOS session preparation phase A
+
+User approved the presented coreaudio-only phase with standalone `go`.
+Implemented the neutral SessionPreparation interface, ManagedSession event/lifetime
+gate, private fake-injectable backend boundary and Objective-C++ iOS backend.
+Playback/default category/mode, activation/deactivation, interruption/resume hint,
+route-change reason and media-services events are represented without claiming
+JUCE device readiness or duplicating its recovery loop. Reports retain primary,
+cleanup and callback errors. A process lease rejects competing prepared shared
+instances. Native deactivation failure requires explicit cleanup retry.
+
+Verification on macOS, AppleClang 21 / Xcode SDK 27.1:
+- Standalone Debug and Release builds with strict warnings/-Werror and explicit
+  C++20, pinned spdlog source reused locally: 9/9 CTest tests pass in each.
+  C++20 is the existing standalone logger workaround; this phase does not
+  change the public C++17 build declarations.
+- Public header isolation object targets compile. Session tests cover validation,
+  requested/applied/observed state, repeated prepare/release, partial/throwing
+  preparation cleanup, native errors, cleanup failure and explicit retry,
+  original callback retention, resume hints and route reason, loss/reset,
+  callback exceptions, stale generations, callback-side release/destruction,
+  external in-flight teardown and unsupported desktop behavior.
+- ThreadSanitizer Debug build: giganteSessionPreparationTests passes (1/1).
+- iOS arm64 / iphoneos, minimum iOS 15, Debug static gigantePlatform cross-build
+  passes with Objective-C++ and AVFoundation/Foundation. Enabling tests and
+  building giganteSessionPreparationTests additionally links an iOS test app;
+  the iOS platform public-header isolation target compiles. Neither is run on a
+  device; no Kuaru app build, installation, signing setup or device use occurred.
+- Earlier logging-OFF Debug run also passed 9/9. Runtime iOS behavior remains
+  unverified; desktop fake tests and a cross-build do not establish that evidence.
+
+Reproduction: configure this repository with CMAKE_BUILD_TYPE=Debug or Release,
+CMAKE_CXX_STANDARD=20, and FETCHCONTENT_SOURCE_DIR_SPDLOG pointing at the existing
+pinned source when offline; build then run ctest --output-on-failure. This run
+used /tmp/coreaudio-session-debug and /tmp/coreaudio-session-release. TSan used
+/tmp/coreaudio-session-tsan, GIGANTE_LOG_COMPILED_LEVEL=OFF and
+-fsanitize=thread in CMAKE_CXX_FLAGS and CMAKE_EXE_LINKER_FLAGS. Cross-build used
+/tmp/coreaudio-session-ios, CMAKE_SYSTEM_NAME=iOS, CMAKE_OSX_SYSROOT=iphoneos,
+CMAKE_OSX_ARCHITECTURES=arm64, CMAKE_OSX_DEPLOYMENT_TARGET=15.0,
+GIGANTE_BUILD_TESTS=OFF and GIGANTE_LOG_COMPILED_LEVEL=OFF for the initial library
+build, then GIGANTE_BUILD_TESTS=ON for the test-link/header-isolation smoke check.
+Tracked diffs in coreaudio and the parent pass git diff --check; new source and
+diagram files also pass explicit whitespace checks, and all three SVGs parse.
+
+REQ-O17/O20 stay partial. Kuaru adoption and device acceptance are next, separately
+approved. Android source behavior is untouched; its shared-interface adoption
+requires a subsequent reuse/parity roadmap after iOS migration. No AHIO adoption,
+endpoint inventory, DSP changes, provisioning or app rebuild was performed.

@@ -143,3 +143,16 @@ before considering optimization or DSP redesign.
 Android Activity/JNI, RPC, Python CLI, device discovery, foreground services,
 and UI are not core infrastructure. Extract product infrastructure only when it
 is demonstrably neutral and required by this library.
+
+
+## iOS session preparation — phase A (2026-10-30)
+
+The approved phase adds the shared `SessionPreparation` contract and iOS native
+backend only. See architecture.md for lifetime, threading and process lease
+rules. REQ-O20 and REQ-O17 remain partial: physical behavior, Kuaru adoption,
+route-port inventory and all other platform implementations are not verified.
+The next Kuaru integration needs its own roadmap and standalone `go`. After iOS
+migration, prepare a separate Android reuse/parity roadmap using the existing
+android_audio_runtime helpers and Kuaru audio-focus seam; do not migrate them
+as a side effect of iOS work. Session activation must never be treated as JUCE
+device readiness, and this layer must not duplicate JUCE's recovery loop.

@@ -71,6 +71,9 @@ target_sources(
 target_sources(
     gigantePlatform
     PRIVATE
+        src/platform/SessionPreparation.cpp
+        src/platform/SessionPreparationImplementation.h
+        include/gigante/SessionPreparation.h
         src/platform/EndpointMonitor.cpp
         src/platform/EndpointPolicy.cpp
         src/platform/HostFacts.cpp
@@ -122,6 +125,15 @@ if(ANDROID)
     )
     set(GIGANTE_PLATFORM_NAME "Android")
 elseif(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    enable_language(OBJCXX)
+    target_sources(gigantePlatform PRIVATE src/platform/IosSessionPreparation.mm)
+    target_compile_definitions(gigantePlatform PRIVATE GIGANTE_IOS_SESSION=1)
+    set_target_properties(gigantePlatform PROPERTIES OBJCXX_STANDARD 17 OBJCXX_STANDARD_REQUIRED YES)
+    set_source_files_properties(src/platform/IosSessionPreparation.mm PROPERTIES COMPILE_OPTIONS "-fno-objc-arc")
+    find_library(GIGANTE_AVFOUNDATION_FRAMEWORK AVFoundation REQUIRED)
+    find_library(GIGANTE_FOUNDATION_FRAMEWORK Foundation REQUIRED)
+    target_link_libraries(gigantePlatform PRIVATE
+        ${GIGANTE_AVFOUNDATION_FRAMEWORK} ${GIGANTE_FOUNDATION_FRAMEWORK})
     target_sources(
         gigantePlatform
         PRIVATE

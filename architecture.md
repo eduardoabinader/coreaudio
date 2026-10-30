@@ -209,14 +209,15 @@ speculative platform infrastructure.
 Group O and Group P extend the structure without changing `giganteCore`.
 Host facts (P11B), the neutral endpoint value/policy layer (P11C), and the
 injected endpoint-monitor lifecycle are present. Concrete platform endpoint
-sources are deferred; session preparation and logging remain planned.
+sources are deferred; SessionPreparation has an iOS backend. Logging has its
+separate foundation described below.
 
 ```text
 giganteCore      JUCE-free DSP; depends on nothing below
 gigantePlatform  HostFactsSource, AudioEndpoint, AudioBus, EndpointInventory,
                  EndpointPolicy, EndpointMonitor and EndpointChangeSource
                  (present as neutral/injected contracts); no concrete endpoint
-                 source; SessionPreparation remains planned
+                 source; SessionPreparation with an iOS backend
 giganteLog       Logger with levels and per-platform backends; Linux/Android
                  foundation present; product-supplied compile ceiling remains
                  while macOS native sink and shared BuildPolicy are deferred
@@ -861,3 +862,70 @@ gates process startup on known device presence. The logger is a small separate
 target so the core stays free of it. Putting endpoints or logging inside
 `giganteCore` remains rejected because it violates REQ-N06 and the realtime
 contract.
+
+
+### Session preparation — iOS phase A
+
+`SessionPreparation` is the neutral public interface in `gigantePlatform`.
+`create()` returns `ManagedSession`, which owns a private
+`SessionPreparationImplementation`. `IosSessionPreparation` implements that
+backend through Objective-C++; non-iOS factories explicitly report unavailable.
+No product, JUCE, Objective-C or AVFoundation types enter the public header.
+Android focus, locks, service and scheduling implementations are unchanged;
+their reuse behind this interface needs its own roadmap after iOS migration.
+AHIO adoption is not authorized by this phase.
+
+The initial request supports playback intent only. The iOS backend explicitly
+applies playback category/default mode and requests activation. `SessionReport`
+separates the request, applied category/activation outcomes, operation-time
+observed category/mode and primary, cleanup and callback errors. Native errors
+retain operation, domain, code and description. There is no public native API
+for reading an AVAudioSession active flag: activation success is an API outcome,
+never a claim that a JUCE device is running. Observations are not a live endpoint
+inventory. Route events currently carry their native reason only.
+
+The platform owns session activation and notification tokens; JUCE owns native
+audio-device stop/reopen. Interruption end (including its optional shouldResume
+hint), route changes and media-services reset never assert recovery success.
+Interruption marks the report interrupted; loss/reset invalidate its activation
+outcome. That status is conservative until explicit release/preparation; JUCE's
+independent recovery does not silently update this report. Kuaru must distinguish
+these reports from actual device readiness in its separately approved adoption.
+Product note release, playback intent, UI, background metadata and headset gain
+policy stay in Kuaru. No background service or entitlement is created here.
+
+Lifecycle operations and callbacks are non-realtime. Consumers serialize
+prepare/release on their control thread; prepare from a callback is forbidden.
+Events execute on the native posting thread through a recursive callback gate.
+Release from a callback is supported. External release waits for the in-flight
+callback, removes observers without waiting for the native notification itself,
+and invalidates the generation. No subsequent callback is accepted after release
+returns. Weak state capture rejects notifications after destruction or restart.
+Callback exceptions are contained and recorded. Consumers must not synchronously
+wait from callbacks for another thread calling report/release on this instance.
+This deliberately bounded scope uses the EndpointMonitor lifecycle conventions
+without changing its implementation or extracting an unrelated common framework.
+
+Repeated prepare retains the original request/callback while registered;
+repeated successful release is inert. Partial preparation failure performs
+cleanup while preserving its original error and any cleanup error. Failed
+native deactivation disables events but retains the lease for an explicit
+release retry; re-preparation is blocked until cleanup succeeds. Destruction
+performs best-effort cleanup and releases the library lease even after a native
+failure. Since AVAudioSession is process-global, a second prepared shared
+instance is rejected. This lease coordinates these shared instances only;
+JUCE and other native session users still require consumer-level coordination.
+
+CMake enables Objective-C++ and links AVFoundation/Foundation only for iOS.
+The backend uses explicit manual Objective-C reference counting independently
+of consumer ARC settings. `gigantePlatform` links no DSP or logger target.
+The private backend injection boundary supports deterministic desktop tests;
+physical iOS session/notification acceptance remains open until Kuaru adoption.
+
+Design evidence:
+- [Class collaboration](docs/devreq/ios-session-preparation/session-preparation-class.html)
+  ([SVG](docs/devreq/ios-session-preparation/session-preparation-class.svg)).
+- [Prepare and partial failure](docs/devreq/ios-session-preparation/prepare-session.html)
+  ([SVG](docs/devreq/ios-session-preparation/prepare-session.svg)).
+- [Events and teardown](docs/devreq/ios-session-preparation/failure-teardown.html)
+  ([SVG](docs/devreq/ios-session-preparation/failure-teardown.svg)).

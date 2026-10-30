@@ -1,3 +1,4 @@
+#include "gigante/SessionPreparation.h"
 #include "gigante/EndpointPolicy.h"
 #include "gigante/EndpointMonitor.h"
 #include "gigante/HostFacts.h"
