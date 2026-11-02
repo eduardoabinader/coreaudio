@@ -894,7 +894,8 @@ library build. No product APK or physical service qualification was performed.
 Commands, file tree and evidence boundaries are in
 [acceptance](docs/devreq/android-session-resources/acceptance.md). The JNI harness
 adds lease/failure/worker-thread proof independent of the C++ fake driver. The
-Java helper test exercises actual helper code against JVM lifecycle fixtures,
+Java helper test lives in Kuaru tests/AndroidResourceSnapshotTests.py and
+exercises actual helper code against JVM lifecycle fixtures,
 not an Android OS. SVG/HTML checks and both repository diff checks pass.
 
 REQ-O20 remains partial. C2B Kuaru ownership handoff, physical acceptance,
@@ -902,3 +903,34 @@ manifest/R8 adoption, multicast/scheduling, screen and Bluetooth policy and AHIO
 adoption remain deferred and separately gated. No stage/commit or capture/build
 cleanup was performed. Additional private JNI support and test harness files are
 reconciled against the approved scope in the acceptance file tree.
+
+
+## 2026-11-02 — C2B consumer adoption and repeated pending-stop repair
+
+Kuaru's approved C2B adopts the C2A backend through one consumer owner. Initial
+physical teardown exposed a second stopService call from full session cleanup
+while onDestroy was queued; the already removed native service record returned
+false while Java still reported running. No resource remained after exit, but
+its error report was misleading. The real-JNI regression failed before repair.
+
+JniSessionResourceDriver now retains accepted-stop state separately from report
+fields, skips repeated native stop while owned/stopPending, and clears it on
+inactive observation/new acquisition. Native denied/throwing stops still allow
+explicit retry. Existing JVM fixtures verify repetitions across observation and
+a denied-then-accepted stop retry; the harness passes under -Xcheck:jni. No public
+API or product policy was added. This necessary fix touches the private driver,
+JNI test and existing Java fixture beyond C2B's original docs-only core plan.
+
+Kuaru registered host tests 2/2, existing core CTest 11/11, actual-helper JVM test,
+final Android Oboe/OpenSLES builds, R8 retention and signed iOS build pass. User
+reports baseline/migrated normal notes, Home/return and focus-takeover parity;
+final patched notes/power-button exit pass. Final native shutdown shows one
+accepted service stop, pending ownership, later inactive/unowned, no resource
+error and no remaining native service/audio partial wake lock. A fresh startup
+recreates exactly one service/lock. Native denial/pending-start races remain
+host-only; UI LookAndFeel teardown assertion remains a separate deferred issue.
+
+Core baseline is c299ef3 with this local patch; no commit/gitlink update is
+claimed. See the consumer docs/devreq/android-session-resources/acceptance.md
+for artifacts, detailed qualification and full file reconciliation. Earlier
+Java-test relocation documentation edits are retained.

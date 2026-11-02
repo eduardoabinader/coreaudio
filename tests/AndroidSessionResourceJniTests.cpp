@@ -38,6 +38,15 @@ extern "C" JNIEXPORT void JNICALL Java_com_gigantelabs_tests_ResourceDriverHarne
         require(!result.owned && result.error && result.operationAccepted == false, "another session adopted the lease");
         result = first->release(SessionResource::backgroundAudio);
         require(result.owned && result.observed == SessionResourceState::stopPending, "pending stop reported stopped");
+        result = first->release(SessionResource::backgroundAudio);
+        require(result.owned && !result.operationAccepted && !result.error,
+                "repeated pending release attempted another native stop");
+        (void) first->observe(SessionResource::backgroundAudio);
+        result = first->release(SessionResource::backgroundAudio);
+        require(result.owned && !result.operationAccepted && !result.error,
+                "observation forgot the accepted pending stop");
+        require(env->GetStaticIntField(service, env->GetStaticFieldID(service, "stops", "I")) == 1,
+                "native stop repeated before asynchronous destruction");
         result = first->request(SessionResource::backgroundAudio);
         require(result.operationAccepted == false && result.error, "pending stop allowed implicit restart or lost cause");
         setState(env, service, "inactive");
@@ -49,6 +58,22 @@ extern "C" JNIEXPORT void JNICALL Java_com_gigantelabs_tests_ResourceDriverHarne
         (void) second->release(SessionResource::backgroundAudio);
         require(env->GetStaticIntField(service, env->GetStaticFieldID(service, "stops", "I")) == 1,
                 "unowned release stopped an external service");
+        setState(env, service, "inactive");
+        (void) first->request(SessionResource::backgroundAudio);
+        auto denyStop = env->GetStaticFieldID(service, "denyStop", "Z");
+        env->SetStaticBooleanField(service, denyStop, JNI_TRUE);
+        result = first->release(SessionResource::backgroundAudio);
+        require(result.owned && result.operationAccepted == false && result.error,
+                "denied service stop lost cleanup ownership or cause");
+        env->SetStaticBooleanField(service, denyStop, JNI_FALSE);
+        result = first->release(SessionResource::backgroundAudio);
+        require(result.owned && result.operationAccepted == true && !result.error,
+                "denied service stop prevented an explicit retry");
+        (void) first->release(SessionResource::backgroundAudio);
+        require(env->GetStaticIntField(service, env->GetStaticFieldID(service, "stops", "I")) == 3,
+                "accepted retry was sent again or denied stop was not retried");
+        setState(env, service, "inactive");
+        (void) first->observe(SessionResource::backgroundAudio);
         (void) first->request(SessionResource::cpuAwake);
         require(!second->request(SessionResource::cpuAwake).owned, "wake lease adopted by another session");
         auto throwing = env->GetStaticFieldID(wake, "throwRelease", "Z");

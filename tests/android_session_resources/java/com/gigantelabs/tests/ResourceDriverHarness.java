@@ -6,8 +6,9 @@ public final class ResourceDriverHarness {
         public static String state = "inactive";
         public static int starts = 0;
         public static int stops = 0;
+        public static boolean denyStop = false;
         public static boolean start(Context context) { ++starts; state = "pending"; return true; }
-        public static boolean stop(Context context) { ++stops; state = "stopPending"; return true; }
+        public static boolean stop(Context context) { ++stops; if (denyStop) return false; state = "stopPending"; return true; }
         public static String[] snapshot() { return new String[] {state, ""}; }
     }
     public static final class WakeHelper {

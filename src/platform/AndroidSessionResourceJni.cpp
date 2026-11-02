@@ -107,6 +107,7 @@ private:
         if (report.owned && report.observed == SessionResourceState::inactive)
         {
             report.owned = false;
+            stopAccepted[slot] = false;
             resourceLeases().owners[slot].reset();
         }
     }
@@ -160,6 +161,13 @@ private:
                 // Never stop it, and never claim a native stop was accepted.
                 return report;
             }
+            if (operation == 1 && stopAccepted[slot]
+                && report.observed == SessionResourceState::stopPending)
+            {
+                // Android may have removed the service record while onDestroy
+                // is queued on the same main thread. Do not stop it twice.
+                return report;
+            }
             if (operation == 0)
             {
                 if (!leases.owners[slot].expired() || report.observed != SessionResourceState::inactive)
@@ -170,6 +178,7 @@ private:
                     return report;
                 }
                 leases.owners[slot] = owner;
+                stopAccepted[slot] = false;
                 report.owned = true; // Retain cleanup responsibility across a partial JNI failure.
             }
             report.error.reset();
@@ -186,6 +195,7 @@ private:
                 staticMethod(env, classes[slot], name, "(Landroid/content/Context;)Z"), context);
             check(env, name);
             report.operationAccepted = accepted == JNI_TRUE;
+            if (operation == 1) stopAccepted[slot] = accepted == JNI_TRUE;
             snapshot(env, slot);
             if (!accepted && !report.error)
                 report.error = SessionError{name, "Android.AudioResource", 0, "native resource operation was not accepted"};
@@ -204,6 +214,7 @@ private:
     jobject context{nullptr};
     std::array<jclass, 2> classes{};
     SessionResourceReports reports{initialSessionResources()};
+    std::array<bool, 2> stopAccepted{};
     std::shared_ptr<int> owner{std::make_shared<int>(0)};
     std::optional<SessionError> initializationError;
 };

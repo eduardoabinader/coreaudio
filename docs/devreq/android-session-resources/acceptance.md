@@ -90,7 +90,7 @@ verified. Linux runner execution was not verified.
 From the Kuaru root:
 
 ```bash
-python3 -m unittest discover -s modules/android_audio_runtime/tests -v
+python3 tests/AndroidResourceSnapshotTests.py -v
 javac -Xlint:all -Werror \
   -cp /Users/U464276/Library/Android/sdk/platforms/android-36/android.jar \
   -d /tmp/coreaudio-c2a-java \
@@ -142,7 +142,7 @@ Kuaru (shared helpers/documentation only):
 [MODIFY] modules/android_audio_runtime/java/com/gigantelabs/audio/AudioPartialWakeLock.java
 [MODIFY] modules/android_audio_runtime/README.md
 [MODIFY] memory/MEMORY.md
-[ADD]    modules/android_audio_runtime/tests/test_resource_snapshots.py
+[ADD]    tests/AndroidResourceSnapshotTests.py
 [REMOVE] (none)
 ```
 
@@ -154,3 +154,16 @@ physical Android device before claiming Kuaru migration. No APK was built,
 installed or launched here. Multicast locks, scheduling, screen-awake, Bluetooth
 output exclusion, DSP changes and AHIO adoption remain outside C2A. This phase
 provides no automatic Android restart or iOS device-recovery behavior.
+
+
+## C2B follow-up — 2026-11-02
+
+Kuaru adoption and ordinary Pixel startup, power-button cleanup and restart now
+pass in the consumer C2B ledger. Live teardown exposed a repeated pending stop
+from facade release plus full session release. A failing-then-passing real-JNI
+regression verifies the private-driver repair: preserve accepted-stop state
+across observation, send no second native stop while pending, but allow explicit
+retry after a denied stop. The existing Java fixture gained a stop-denial switch.
+No public API changed. Physical native-denial/pending-start race qualification
+and other platform levers remain open. The C2A evidence above remains historical
+and does not imply complete REQ-O20 qualification.

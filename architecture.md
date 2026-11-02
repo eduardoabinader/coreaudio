@@ -1047,3 +1047,21 @@ Design previews (each has a sibling SVG):
 [pending stop](docs/devreq/android-session-resources/pending-stop.html),
 and [failure/teardown](docs/devreq/android-session-resources/resource-failure-release.html).
 Verification and exact commands: [C2A acceptance](docs/devreq/android-session-resources/acceptance.md).
+
+
+### C2B consumer adoption and pending-stop idempotence
+
+Kuaru now composes the C2A resource driver through one consumer session owner.
+Its explicit service-stop followed by full session release exposed a duplicate
+stop before Android delivered onDestroy. JniSessionResourceDriver now retains
+accepted-stop state separately from per-operation report fields. Repeated
+release while the owned service remains stopPending observes the pending stop,
+without another native operation or invented acceptance. Inactive observation
+clears this state and ownership; denied/throwing stops still permit explicit
+retry. The real-JNI harness verifies repetitions across observation calls.
+No new capability or product policy is introduced by this repair.
+
+C2B evidence is recorded in the consumer's android-session-resources acceptance
+ledger. Physical pending-start races, denial/exception injection and other OS
+implementations remain separately qualified; successful ordinary shutdown alone
+does not verify every REQ-O20 path.
