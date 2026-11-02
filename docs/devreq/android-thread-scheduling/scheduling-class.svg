@@ -1,42 +1,36 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="685" viewBox="0 0 1800 685">
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="590" viewBox="0 0 1800 590">
 <defs><marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0 0L10 4L0 8Z" fill="#315c91"/></marker></defs>
 <rect width="100%" height="100%" fill="white"/>
-<text x="20" y="30" font-family="Arial" font-size="22">C3A: compare existing scheduling with JUCE-only</text>
-<text x="20" y="54" font-family="Arial" font-size="14">C3A implemented — Pixel comparison verified — default legacy; retirement deferred</text>
-<rect x="7" y="75" width="346" height="45" rx="6" fill="#e6f1ff" stroke="#315c91"/>
-<text x="180" y="103" text-anchor="middle" font-family="Arial" font-size="14">SinukaruPianoSynthesizer</text>
-<path d="M180 123V675" stroke="#94a3b8" stroke-dasharray="5 5"/>
-<rect x="367" y="75" width="346" height="45" rx="6" fill="#e6f1ff" stroke="#315c91"/>
-<text x="540" y="103" text-anchor="middle" font-family="Arial" font-size="14">AndroidPerformanceOptimizer</text>
-<path d="M540 123V675" stroke="#94a3b8" stroke-dasharray="5 5"/>
-<rect x="727" y="75" width="346" height="45" rx="6" fill="#e6f1ff" stroke="#315c91"/>
-<text x="900" y="103" text-anchor="middle" font-family="Arial" font-size="14">JUCE Oboe/OpenSL device</text>
-<path d="M900 123V675" stroke="#94a3b8" stroke-dasharray="5 5"/>
-<rect x="1087" y="75" width="346" height="45" rx="6" fill="#e6f1ff" stroke="#315c91"/>
-<text x="1260" y="103" text-anchor="middle" font-family="Arial" font-size="14">Custom scheduler / worker</text>
-<path d="M1260 123V675" stroke="#94a3b8" stroke-dasharray="5 5"/>
-<rect x="1447" y="75" width="346" height="45" rx="6" fill="#e6f1ff" stroke="#315c91"/>
-<text x="1620" y="103" text-anchor="middle" font-family="Arial" font-size="14">Android OS / observer</text>
-<path d="M1620 123V675" stroke="#94a3b8" stroke-dasharray="5 5"/>
-<rect x="15" y="141" width="1770" height="24" fill="white"/>
-<text x="22" y="158" font-family="Arial" font-size="14">1. Validated build setting selects legacy (unchanged default) or juce mode</text>
-<path d="M180 173 H540" stroke="#315c91" fill="none" marker-end="url(#arrow)"/>
-<rect x="15" y="216" width="1770" height="24" fill="white"/>
-<text x="22" y="233" font-family="Arial" font-size="14">2. Both modes preserve the pinned JUCE 9.0.4 device path and custom device-selection safeguards</text>
-<path d="M180 248 H900" stroke="#315c91" fill="none" marker-end="url(#arrow)"/>
-<rect x="15" y="291" width="1770" height="24" fill="white"/>
-<text x="22" y="308" font-family="Arial" font-size="14">3. Legacy mode keeps the current preparation, callback scheduling attempts and worker</text>
-<path d="M540 323 H1260" stroke="#315c91" fill="none" marker-end="url(#arrow)"/>
-<rect x="15" y="366" width="1770" height="24" fill="white"/>
-<text x="22" y="383" font-family="Arial" font-size="14">4. JUCE mode makes the compatibility calls empty; no extra scheduling or worker startup</text>
-<path d="M540 398 h65 v18 h-65" stroke="#315c91" fill="none" marker-end="url(#arrow)"/>
-<rect x="15" y="441" width="1770" height="24" fill="white"/>
-<text x="22" y="458" font-family="Arial" font-size="14">5. JUCE mode relies on the existing native callback/stream scheduling behavior</text>
-<path d="M900 473 H1620" stroke="#315c91" fill="none" marker-end="url(#arrow)"/>
-<rect x="15" y="516" width="1770" height="24" fill="white"/>
-<text x="22" y="533" font-family="Arial" font-size="14">6. JUCE build excludes the custom scheduler source; artifact checks verify exclusion</text>
-<path d="M1260 548 h65 v18 h-65" stroke="#315c91" fill="none" marker-end="url(#arrow)"/>
-<rect x="15" y="591" width="1770" height="24" fill="white"/>
-<text x="22" y="608" font-family="Arial" font-size="14">7. No new shared scheduler abstraction, source retirement or default-policy change in this phase</text>
-<path d="M180 623 h65 v18 h-65" stroke="#315c91" fill="none" marker-end="url(#arrow)"/>
+<text x="20" y="30" font-family="Arial" font-size="22">C3B: scheduling ownership after consumer retirement</text>
+<text x="20" y="54" font-family="Arial" font-size="14">C3B approved scope — REQ-AM02/AM04 and REQ-O20/O21 — verification tracked separately</text>
+<rect x="10" y="75" width="340" height="44" rx="6" fill="#e6f1ff" stroke="#315c91"/>
+<text x="180" y="102" text-anchor="middle" font-family="Arial" font-size="14">Kuaru synthesizer</text>
+<path d="M180 123V580" stroke="#94a3b8" stroke-dasharray="5 5"/>
+<rect x="370" y="75" width="340" height="44" rx="6" fill="#e6f1ff" stroke="#315c91"/>
+<text x="540" y="102" text-anchor="middle" font-family="Arial" font-size="14">JUCE Oboe / OpenSLES device</text>
+<path d="M540 123V580" stroke="#94a3b8" stroke-dasharray="5 5"/>
+<rect x="730" y="75" width="340" height="44" rx="6" fill="#e6f1ff" stroke="#315c91"/>
+<text x="900" y="102" text-anchor="middle" font-family="Arial" font-size="14">Android OS</text>
+<path d="M900 123V580" stroke="#94a3b8" stroke-dasharray="5 5"/>
+<rect x="1090" y="75" width="340" height="44" rx="6" fill="#e6f1ff" stroke="#315c91"/>
+<text x="1260" y="102" text-anchor="middle" font-family="Arial" font-size="14">SessionPreparation / adapter</text>
+<path d="M1260 123V580" stroke="#94a3b8" stroke-dasharray="5 5"/>
+<rect x="1450" y="75" width="340" height="44" rx="6" fill="#e6f1ff" stroke="#315c91"/>
+<text x="1620" y="102" text-anchor="middle" font-family="Arial" font-size="14">Evidence observer</text>
+<path d="M1620 123V580" stroke="#94a3b8" stroke-dasharray="5 5"/>
+<rect x="15" y="139" width="1770" height="24" fill="white"/>
+<text x="22" y="155" font-family="Arial" font-size="14">1. Synthesizer uses the existing JUCE device and callback path</text>
+<path d="M180 171 H540" stroke="#315c91" fill="none" marker-end="url(#arrow)"/>
+<rect x="15" y="221" width="1770" height="24" fill="white"/>
+<text x="22" y="237" font-family="Arial" font-size="14">2. JUCE creates backend threads and requests native scheduling</text>
+<path d="M540 253 H900" stroke="#315c91" fill="none" marker-end="url(#arrow)"/>
+<rect x="15" y="303" width="1770" height="24" fill="white"/>
+<text x="22" y="319" font-family="Arial" font-size="14">3. Observe effective policy, RT priority and nice; do not infer from requests</text>
+<path d="M900 335 H1620" stroke="#315c91" fill="none" marker-end="url(#arrow)"/>
+<rect x="15" y="385" width="1770" height="24" fill="white"/>
+<text x="22" y="401" font-family="Arial" font-size="14">4. Existing product adapter retains shared focus, service and wake ownership</text>
+<path d="M180 417 H1260" stroke="#315c91" fill="none" marker-end="url(#arrow)"/>
+<rect x="15" y="467" width="1770" height="24" fill="white"/>
+<text x="22" y="483" font-family="Arial" font-size="14">5. Artifact check rejects custom scheduler linkage; shared runtime remains for other consumers</text>
+<path d="M180 499 H1620" stroke="#315c91" fill="none" marker-end="url(#arrow)"/>
 </svg>

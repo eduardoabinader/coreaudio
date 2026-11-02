@@ -188,3 +188,16 @@ consumers. Core source remains unchanged by this experiment. Do not migrate or
 retire mechanisms based only on requested priority, app timing heuristics, or
 unpopulated latency fields. See docs/devreq/android-thread-scheduling/audit.md
 and the consumer acceptance ledger before proposing a later implementation.
+
+
+## Kuaru scheduling retirement — C3B
+
+The user approved C3B on 2026-11-02, superseding C3A's legacy-default boundary
+for Kuaru only. Remove the consumer optimizer, first-callback guard/preparation,
+custom scheduler linkage and comparison selector; rely on existing JUCE/Android
+scheduling. Keep shared android_audio_runtime unchanged for other consumers.
+No new core scheduler, iOS mechanism, backend/DSP/session policy change or AHIO
+adoption is authorized. Record builds, artifact rejection of legacy linkage,
+matched native counters and lifecycle/listening evidence independently; retain
+Bluetooth and LookAndFeel defects as deferred. Broader qualification and other
+platform mechanisms keep REQ-O20/O21 partial.

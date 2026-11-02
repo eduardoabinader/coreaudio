@@ -958,3 +958,49 @@ its exact inventory layer remains unresolved. Bluetooth output blocking and
 broader device qualification are separate deferred work. See the consumer
 docs/devreq/android-thread-scheduling/{comparison,acceptance}.md for protocol,
 artifact identities, metric semantics, signing workaround and check limits.
+
+
+## Group R REST engine — draft requirements, 2026-11-02
+
+The user selected libhv as the engine for a neutral REST client/server library
+in this repository, guided by an architecture brief; its production suitability
+remains a hypothesis for phase R0. requirements.md Group R (REQ-RC01 onward) is
+a draft awaiting approval and records open decisions. HTTP is the default only
+in an explicit development profile; production requires HTTPS with no downgrade.
+The IDs use REQ-RC because Kuaru already uses REQ-R. No source, dependency or
+CMake target was added. libhv evidence comes from reading commit 060a4b6 without
+compiling it: the owner's work dates from 2018 and most core lines predate 2025,
+so it is not AI-originated, but AI share since May 2026 cannot be fully measured.
+The practical concerns are verify-none TLS defaults, a 0.0.0.0 default bind,
+connection-closing write limits, process-global state, no fuzz or sanitizer
+configuration found upstream, and open security issues including undisclosed #919.
+
+
+## C3B — Kuaru Android scheduling retirement (2026-11-02)
+
+The separately approved retirement removes Kuaru's Performance.h optimizer,
+constructor preparation, prepare reset, first-process atomic/callback hook,
+custom scheduler linkage and legacy/juce comparison selector. JUCE 9.0.4 and
+Android own effective scheduling. Focus/service/wake ownership is unchanged.
+No scheduler API is added to coreaudio; shared android_audio_runtime and AHIO
+implementation are unchanged. C3A legacy-default notes are historical.
+
+Oboe/OpenSLES profiling and normal Oboe dev builds pass; signed iOS dev and
+bundle verifier pass (no new iOS runtime test). Final profiling/debug APKs
+exclude custom scheduler markers; archived legacy APKs are rejected by the
+adapted artifact checker. Temporary debug re-signing preserves native bytes
+and allows in-place testing without uninstall/data loss or signing-policy edits.
+
+Pixel speaker/Cigar reeds/default/48 kHz/480-frame tests show zero native
+underrun-counter deltas in all six 30-second windows. Sampled callback means
+overlap the prior experiment; no physical latency/improvement claim is made.
+Both native render/replacement threads remain FIFO/RT2, nice -16; custom events
+are absent. Both idle/Home/reopen and ordinary power-exit/fresh-launch checks
+pass, and the user reports clean sound/recovery on both backends. The final
+normal Oboe dev APK and prior 1920-frame buffer are restored on the Pixel.
+
+Bluetooth inventory/eligibility, LookAndFeel teardown assertion (still seen),
+broader device/route/buffer qualification and other platform mechanisms remain
+deferred. REQ-AM04/O20/O21 remain partial overall. See the consumer
+docs/devreq/android-thread-scheduling/retirement{,-acceptance}.md for exact
+protocol, artifact identities, metrics, scope/file reconciliation and limits.

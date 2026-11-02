@@ -1067,7 +1067,7 @@ implementations remain separately qualified; successful ordinary shutdown alone
 does not verify every REQ-O20 path.
 
 
-## Android scheduling evaluation — C3A
+## Android scheduling evaluation — C3A (historical)
 
 C3A evaluates whether Kuaru needs its additional Android scheduling mechanism
 with the pinned JUCE 9.0.4 backend. The consumer introduces a legacy/juce build
@@ -1088,3 +1088,20 @@ Design previews: [classes](docs/devreq/android-thread-scheduling/scheduling-clas
 [lifecycle](docs/devreq/android-thread-scheduling/thread-retirement.html). Each has
 a sibling SVG. Consumer protocol/results live in its android-thread-scheduling
 comparison and acceptance documents.
+
+
+## Kuaru scheduling retirement — C3B
+
+The separately approved consumer retirement removes Kuaru's optimizer facade,
+callback guard/preparation and custom scheduler linkage/comparison selector.
+JUCE's existing Oboe/OpenSLES backend owns thread creation and scheduling
+requests; Android applies effective policy. No scheduling class is moved to
+coreaudio and no scheduler API or Android/iOS optimizer superclass is added.
+SessionPreparation retains focus/service/wake mechanisms and their existing
+product-adapter ownership. Other consumers retain android_audio_runtime.
+
+The four scheduling design previews linked above now describe the C3B current
+ownership, callback, failure and shutdown collaborations. The consumer
+docs/devreq/android-thread-scheduling/retirement{,-acceptance}.md records
+implementation and verification separately. Historical C3A observations are
+retained in the audit; they do not imply universal device qualification.

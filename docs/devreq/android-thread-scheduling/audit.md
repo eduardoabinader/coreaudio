@@ -89,3 +89,25 @@ stream reopen checks; candidate logs contain no custom scheduling events.
 The consumer restored normal legacy/Oboe dev. C3A qualifies a candidate on
 one device/route/buffer, not all Android configurations or shared REQ-O20/O21
 as a whole. A separately approved phase must decide retirement/default changes.
+
+
+## C3B consumer retirement — current architecture
+
+The sections above record the historical C3A audit and experiment. The user
+approved Kuaru retirement on 2026-11-02: Performance.h, preparation/callback
+calls, the per-prepare first-processing guard and custom source linkage are
+removed. The temporary scheduling selector is removed. JUCE and Android own
+thread scheduling; the unchanged custom scheduler remains available to other
+consumers. Existing session resources and DSP policy are unchanged.
+
+Current class/callback/failure/shutdown SVG/HTML previews describe C3B. See
+the consumer retirement.md and retirement-acceptance.md for its own build,
+artifact, measured and audible evidence; C3A results alone are not C3B runtime
+acceptance and do not establish every-device behavior.
+
+C3B verification on the Pixel repeats six matched windows with zero native
+underrun-counter increases. Both render/replacement threads use FIFO/RT2,
+nice -16; both backends pass user listening and ordinary lifecycle/restart
+checks. The final Oboe dev artifact is restored. Wider device qualification
+and the existing Bluetooth/LookAndFeel defects remain deferred; see the
+consumer retirement acceptance for metric definitions and temporary artifacts.
