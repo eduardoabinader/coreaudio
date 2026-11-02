@@ -1,5 +1,6 @@
 #pragma once
 #include "SessionPreparationImplementation.h"
+#include "AndroidSessionResourceDriver.h"
 #include <functional>
 #include <optional>
 
@@ -23,5 +24,6 @@ public:
     virtual AndroidFocusOperationResult release() noexcept = 0;
 };
 std::unique_ptr<SessionPreparation> makeAndroidSessionPreparation(
-    std::unique_ptr<AndroidAudioFocusDriver> driver);
+    std::unique_ptr<AndroidAudioFocusDriver> driver,
+    std::unique_ptr<AndroidSessionResourceDriver> resources = {});
 } // namespace gigante

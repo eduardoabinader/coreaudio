@@ -10,5 +10,11 @@ namespace gigante
 // Null context/env/class and JNI failures produce an explicit failed report.
 [[nodiscard]] std::unique_ptr<SessionPreparation> createAndroidSessionPreparation(
     JNIEnv* env, jobject applicationContext, jclass listenerClass);
+// Optional resources are explicitly injected; the three-argument focus factory
+// remains compatible and reports resources unavailable. Resolve helper classes
+// through the application loader and retain their methods in shrinker rules.
+[[nodiscard]] std::unique_ptr<SessionPreparation> createAndroidSessionPreparation(
+    JNIEnv* env, jobject applicationContext, jclass listenerClass,
+    jclass foregroundServiceClass, jclass wakeLockClass);
 } // namespace gigante
 #endif

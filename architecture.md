@@ -988,3 +988,62 @@ Design evidence (SVG siblings available in the same directory):
 - [Request](docs/devreq/android-session-preparation/request-focus.html)
 - [Changes](docs/devreq/android-session-preparation/focus-change.html)
 - [Failure/teardown](docs/devreq/android-session-preparation/failure-teardown.html)
+
+
+## Android session resources — C2A (2026-11-02)
+
+REQ-O20 now has independent non-realtime `requestResource`, `releaseResource`
+and `observeResource` operations for `backgroundAudio` and `cpuAwake`.
+`SessionResourceReport` separates requested intent, optional native acceptance,
+observed state, support, ownership, operation error and cleanup error.
+`SessionReport.resources` caches reports in background-audio/CPU-awake order;
+`report()` never polls native state. `observeResource()` explicitly refreshes it
+on the caller thread. Existing focus and iOS preparation semantics are retained;
+resource availability never means an audio device is ready. Other platforms and
+the focus-only Android factory return explicit unsupported resource reports.
+
+`ManagedSession` serializes these operations with its existing callback gate.
+Focus prepare/release preserves resource reports. Failed resource operations do
+not abandon focus or another resource. Session release attempts owned wake-lock
+cleanup, owned service cleanup, then focus release. Original request and cleanup
+errors remain separate. Pending service stop retains ownership until an explicit
+observation sees inactive; native cleanup failure permits explicit retry.
+Destruction provides best-effort cleanup, without waiting for Android's main loop.
+
+`AndroidSessionPreparation` composes the existing `AndroidAudioFocusDriver` with
+an optional `AndroidSessionResourceDriver`. The five-argument Android factory
+accepts the application context plus explicit listener, foreground-service and
+wake-lock classes resolved through the consumer's application loader. Its
+three-argument overload remains focus-only. No consumer package/class lookup or
+checkout dependency enters coreaudio. The new driver retains/releases JNI global
+references; common bounded JNI frames, thread attachment and Throwable capture
+are factored into the private `AndroidSessionJniSupport.h`, retaining C1 behavior.
+
+`JniSessionResourceDriver` uses process-wide per-resource leases and holds the
+Java helper class monitor across observe-and-act. Java helper state writes use
+that same monitor. An already active/pending external resource is refused rather
+than adopted; unowned release is observation only. A lease is retained across a
+partial JNI failure for cleanup. Failure to read a snapshot cannot prevent a
+stop attempt for an already owned resource. There are no resource callbacks,
+automatic polling, synchronous main-loop waits, or product readiness decisions.
+
+The existing shared `AudioForegroundService` and `AudioPartialWakeLock` retain
+their callable APIs and boolean/exception behavior. Additive atomic `snapshot()`
+methods return a two-string schema: observed state, last native error. Service
+start accepted is distinct from running; deferred stop remains `stopPending`
+through required foreground entry until `onDestroy`. Wake-lock state follows
+`isHeld`, not the acceptance of a release call. Snapshot strings and helper
+classes/methods must survive consumer shrinker rules when C2B adopts the factory.
+
+C2A adds this mechanism only. Kuaru still owns its existing service/wake calls;
+C2B must transfer ownership without overlapping old and shared owners and
+qualify physical-device foreground/background/teardown behavior. No AHIO
+adoption, multicast lock, scheduling, screen-awake, Bluetooth routing or audio
+DSP change is included.
+
+Design previews (each has a sibling SVG):
+[classes](docs/devreq/android-session-resources/resource-class.html),
+[request/observation](docs/devreq/android-session-resources/resource-prepare.html),
+[pending stop](docs/devreq/android-session-resources/pending-stop.html),
+and [failure/teardown](docs/devreq/android-session-resources/resource-failure-release.html).
+Verification and exact commands: [C2A acceptance](docs/devreq/android-session-resources/acceptance.md).

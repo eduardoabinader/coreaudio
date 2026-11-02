@@ -863,3 +863,42 @@ caveat and reproduction are in Kuaru docs/devreq/android-session-preparation/acc
 C2 service/wake locks, C3 scheduling, endpoint work and AHIO adoption are deferred
 and separately gated. REQ-O20 remains partial. No commit is made automatically;
 Kuaru must pin the complete C1 core revision after the user commits it.
+
+## 2026-11-02 — Android session resources C2A
+
+User explicitly selected the pending C2A roadmap after the completed IOSDog
+repair. Added independent SessionPreparation resource request/release/observe
+operations and reports for backgroundAudio/cpuAwake. ManagedSession serializes
+operations, preserves reports through focus prepare/release, and tears down only
+owned resources in wake/service/focus order. Request and cleanup causes stay
+separate. Unsupported providers fail explicitly, not by successful no-op.
+
+AndroidSessionPreparation optionally composes AndroidSessionResourceDriver.
+The new five-argument public factory injects context and all helper classes;
+the existing three-argument factory remains focus-only. JniSessionResourceDriver
+uses process leases plus the Java class monitor across observe-and-act, refuses
+external ownership and retains pending-stop or failed-cleanup ownership until
+explicit observation/retry. Native observation failure does not prevent owned
+cleanup. JNI attachment/local frames/Throwable handling were extracted unchanged
+from C1 into a private support header. Global refs belong to the backend.
+
+Shared Java helpers add atomic state/error snapshots without switching Kuaru
+owners or changing their existing method signatures/boolean/exception behavior.
+Pending stop stays visible until onDestroy; wake state comes from isHeld.
+
+Verified: standalone macOS strict-warning build, public headers, and CTest 11/11;
+real resource JNI driver with JVM fixtures under -Xcheck:jni; actual Java helper
+lifecycle/error/retry fixture test; Java API 36 compilation; Android arm64/API 29
+platform-library cross-build (NDK 29.0.13599879); iOS arm64/iPhoneOS 16 platform
+library build. No product APK or physical service qualification was performed.
+Commands, file tree and evidence boundaries are in
+[acceptance](docs/devreq/android-session-resources/acceptance.md). The JNI harness
+adds lease/failure/worker-thread proof independent of the C++ fake driver. The
+Java helper test exercises actual helper code against JVM lifecycle fixtures,
+not an Android OS. SVG/HTML checks and both repository diff checks pass.
+
+REQ-O20 remains partial. C2B Kuaru ownership handoff, physical acceptance,
+manifest/R8 adoption, multicast/scheduling, screen and Bluetooth policy and AHIO
+adoption remain deferred and separately gated. No stage/commit or capture/build
+cleanup was performed. Additional private JNI support and test harness files are
+reconciled against the approved scope in the acceptance file tree.

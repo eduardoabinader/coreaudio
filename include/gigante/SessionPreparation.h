@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -42,6 +43,26 @@ struct SessionAudioFocusReport
     std::optional<int> abandonResult;
 };
 
+// Independent non-realtime resources; these never imply audio-device readiness.
+enum class SessionResource { backgroundAudio, cpuAwake };
+enum class SessionResourceState { unavailable, inactive, pending, active, stopPending, failed };
+struct SessionResourceReport
+{
+    SessionResource resource{SessionResource::backgroundAudio};
+    std::optional<bool> requestedActive;
+    bool supported{false};
+    std::optional<bool> operationAccepted;
+    SessionResourceState observed{SessionResourceState::unavailable};
+    bool owned{false};
+    std::optional<SessionError> error;
+    std::optional<SessionError> cleanupError;
+};
+using SessionResourceReports = std::array<SessionResourceReport, 2>;
+// Reports use stable enum order: backgroundAudio, cpuAwake.
+[[nodiscard]] SessionResourceReports initialSessionResources();
+[[nodiscard]] SessionResourceReport unsupportedSessionResource(SessionResource resource,
+    std::optional<bool> requestedActive = {});
+
 struct SessionReport
 {
     SessionRequest requested;
@@ -55,6 +76,7 @@ struct SessionReport
     std::optional<SessionError> cleanupError;
     std::optional<SessionError> callbackError;
     std::optional<SessionAudioFocusReport> audioFocus{};
+    SessionResourceReports resources{initialSessionResources()};
 };
 
 struct SessionEvent
@@ -83,6 +105,12 @@ public:
     // release does not wait on itself. No subsequent callback after it returns.
     [[nodiscard]] virtual SessionReport release() = 0;
     [[nodiscard]] virtual SessionReport report() const = 0;
+
+    // Independent, non-realtime operations. Defaults explicitly report unsupported.
+    // Observation refreshes native state on the caller thread; it never polls/waits.
+    [[nodiscard]] virtual SessionResourceReport requestResource(SessionResource resource);
+    [[nodiscard]] virtual SessionResourceReport releaseResource(SessionResource resource);
+    [[nodiscard]] virtual SessionResourceReport observeResource(SessionResource resource);
 
     // iOS backend, explicit unavailable result elsewhere. Android requires the
     // context-taking factory in AndroidSessionPreparation.h. No JUCE dependency.

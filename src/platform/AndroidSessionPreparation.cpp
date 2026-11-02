@@ -9,8 +9,9 @@ namespace
 class AndroidSessionPreparation final : public SessionPreparationImplementation
 {
 public:
-    explicit AndroidSessionPreparation(std::unique_ptr<AndroidAudioFocusDriver> driverIn)
-        : driver(std::move(driverIn)) {}
+    AndroidSessionPreparation(std::unique_ptr<AndroidAudioFocusDriver> driverIn,
+                              std::unique_ptr<AndroidSessionResourceDriver> resourcesIn)
+        : driver(std::move(driverIn)), resources(std::move(resourcesIn)) {}
     SessionReport prepare(SessionRequest request, SessionPreparation::Callback sink) override
     {
         current = {};
@@ -45,15 +46,23 @@ public:
         if (!current.error) current.activationApplied = false;
         return current;
     }
+    SessionResourceReport requestResource(SessionResource resource) override
+    { return resources ? resources->request(resource) : unsupportedSessionResource(resource, true); }
+    SessionResourceReport releaseResource(SessionResource resource) override
+    { return resources ? resources->release(resource) : unsupportedSessionResource(resource, false); }
+    SessionResourceReport observeResource(SessionResource resource) override
+    { return resources ? resources->observe(resource) : unsupportedSessionResource(resource); }
 private:
     std::unique_ptr<AndroidAudioFocusDriver> driver;
     SessionReport current;
+    std::unique_ptr<AndroidSessionResourceDriver> resources;
 };
 }
 std::unique_ptr<SessionPreparation> makeAndroidSessionPreparation(
-    std::unique_ptr<AndroidAudioFocusDriver> driver)
+    std::unique_ptr<AndroidAudioFocusDriver> driver,
+    std::unique_ptr<AndroidSessionResourceDriver> resources)
 {
     if (!driver) throw std::invalid_argument("Android audio focus driver is null");
-    return makeSessionPreparation(std::make_unique<AndroidSessionPreparation>(std::move(driver)));
+    return makeSessionPreparation(std::make_unique<AndroidSessionPreparation>(std::move(driver), std::move(resources)));
 }
 } // namespace gigante

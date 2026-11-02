@@ -7,6 +7,28 @@
 
 namespace gigante
 {
+SessionResourceReports initialSessionResources()
+{
+    SessionResourceReports reports{};
+    reports[1].resource = SessionResource::cpuAwake;
+    return reports;
+}
+SessionResourceReport unsupportedSessionResource(SessionResource resource, std::optional<bool> requestedActive)
+{
+    SessionResourceReport result;
+    result.resource = resource;
+    result.requestedActive = requestedActive;
+    if (requestedActive) result.operationAccepted = false;
+    result.error = SessionError{"sessionResource", "gigante", 0, "resource backend is unavailable"};
+    return result;
+}
+SessionResourceReport SessionPreparation::requestResource(SessionResource resource)
+{ return unsupportedSessionResource(resource, true); }
+SessionResourceReport SessionPreparation::releaseResource(SessionResource resource)
+{ return unsupportedSessionResource(resource, false); }
+SessionResourceReport SessionPreparation::observeResource(SessionResource resource)
+{ return unsupportedSessionResource(resource); }
+
 namespace
 {
 struct SessionState
@@ -20,6 +42,7 @@ struct SessionState
 
 class ManagedSession final : public SessionPreparation
 {
+    enum class ResourceOperation { request, release, observe };
 public:
     explicit ManagedSession(std::unique_ptr<SessionPreparationImplementation> backendIn)
         : backend(std::move(backendIn)), state(std::make_shared<SessionState>()) {}
@@ -32,7 +55,9 @@ public:
             return state->report;
         if (needsRelease)
             return state->report; // Explicit release retry is required after failed cleanup.
+        const auto resources = state->report.resources;
         state->report = {};
+        state->report.resources = resources;
         state->report.requested = request;
         if (!callback || !request.playback)
         {
@@ -93,6 +118,7 @@ public:
             state->report.status = SessionStatus::failed;
             state->report.error = SessionError{"prepare", "gigante", 0, "unknown backend exception"};
         }
+        state->report.resources = resources;
         if (state->report.status == SessionStatus::active)
         {
             state->callback = std::move(callback);
@@ -113,19 +139,35 @@ public:
     SessionReport release() override
     {
         std::lock_guard<std::recursive_mutex> lock(state->mutex);
+        // Resource cleanup is independent of focus, including failed/absent focus.
+        for (const auto resource : {SessionResource::cpuAwake, SessionResource::backgroundAudio})
+        {
+            const auto index = resource == SessionResource::cpuAwake ? 1U : 0U;
+            if (state->report.resources[index].owned)
+                (void) releaseResource(resource);
+        }
         if (!needsRelease) return state->report;
         state->accepting = false;
         ++state->generation;
         state->callback = {};
+        const auto resources = state->report.resources;
         const auto requested = state->report.requested;
         const auto observedFocus = state->report.audioFocus
             ? state->report.audioFocus->observedChange : std::optional<int>{};
         state->report = backend->release();
+        state->report.resources = resources;
         if (state->report.audioFocus) state->report.audioFocus->observedChange = observedFocus;
         state->report.requested = requested;
         needsRelease = state->report.status == SessionStatus::failed;
         return state->report;
     }
+
+    SessionResourceReport requestResource(SessionResource resource) override
+    { return resourceOperation(resource, ResourceOperation::request); }
+    SessionResourceReport releaseResource(SessionResource resource) override
+    { return resourceOperation(resource, ResourceOperation::release); }
+    SessionResourceReport observeResource(SessionResource resource) override
+    { return resourceOperation(resource, ResourceOperation::observe); }
 
     SessionReport report() const override
     {
@@ -133,6 +175,44 @@ public:
         return state->report;
     }
 private:
+    SessionResourceReport resourceOperation(SessionResource resource, ResourceOperation operation)
+    {
+        std::lock_guard<std::recursive_mutex> lock(state->mutex);
+        if (resource != SessionResource::backgroundAudio && resource != SessionResource::cpuAwake)
+            return unsupportedSessionResource(resource);
+        auto& previous = state->report.resources[resource == SessionResource::cpuAwake ? 1U : 0U];
+        if (operation != ResourceOperation::observe)
+        {
+            previous.requestedActive = operation == ResourceOperation::request;
+            previous.operationAccepted.reset();
+        }
+        try
+        {
+            auto result = operation == ResourceOperation::request ? backend->requestResource(resource)
+                : operation == ResourceOperation::release ? backend->releaseResource(resource) : backend->observeResource(resource);
+            if (operation == ResourceOperation::release && result.error && previous.error)
+            {
+                result.cleanupError = result.error;
+                result.error = previous.error;
+            }
+            previous = std::move(result);
+        }
+        catch (const std::exception& error)
+        {
+            previous.observed = SessionResourceState::failed;
+            const SessionError failure{"sessionResource", "gigante", 0, error.what()};
+            if (operation == ResourceOperation::release) previous.cleanupError = failure;
+            if (!previous.error || operation != ResourceOperation::release) previous.error = failure;
+        }
+        catch (...)
+        {
+            previous.observed = SessionResourceState::failed;
+            const SessionError failure{"sessionResource", "gigante", 0, "unknown resource exception"};
+            if (operation == ResourceOperation::release) previous.cleanupError = failure;
+            if (!previous.error || operation != ResourceOperation::release) previous.error = failure;
+        }
+        return previous;
+    }
     std::unique_ptr<SessionPreparationImplementation> backend;
     std::shared_ptr<SessionState> state;
     bool needsRelease{false};

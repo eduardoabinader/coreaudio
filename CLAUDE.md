@@ -167,3 +167,13 @@ and AHIO adoption remain outside C1. Use the neutral injected backend tests and
 track native/device results separately. Kuaru preserves its nonfatal denied-focus
 startup policy. Gain is a fact, not a device-recovery command. The next C2 phase
 needs a new roadmap and standalone go. No commits are automatic.
+
+
+## Android session resources — C2A (2026-11-02)
+
+C2A adds only the neutral per-resource contract and Android JNI service/wake
+driver, plus additive shared Java snapshots. Focus-only factories and iOS
+preparation retain their semantics. REQ-O20 remains partial; host/JVM fixture and
+Android/iOS build evidence is not physical service qualification. Kuaru resource
+ownership adoption is C2B and needs a separately approved roadmap. Do not switch
+consumer calls, add multicast/scheduling or change UI/audio policies in C2A.

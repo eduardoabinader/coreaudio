@@ -139,7 +139,7 @@ are tracked independently as for Group N.
 | REQ-O17 | iOS: the inventory and monitor shall use `AVAudioSession` route ports and route-change notifications through Objective-C++, and the session category and mode shall be set explicitly and reported. | Yes | Partial | Partial | iOS session phase A: explicit playback/default category/mode, operation-time observations and route-change reason notifications implemented; arm64 SDK cross-build passed. Route-port inventory, concrete EndpointMonitor source and physical behavior remain deferred |
 | REQ-O18 | macOS: the bus shall come from the CoreAudio transport-type property, and change events from JUCE's own device-list notification. | Yes | No | No | Not started |
 | REQ-O19 | Linux: the bus shall come from ALSA card and sysfs information. Hot-plug shall use udev, inotify or bounded polling, the chosen mechanism recorded with its evidence. It shall run headless, with no display or session bus. | Yes | No | No | Deferred by explicit scope decision: there is no Linux interface or automatic hot-plug requirement; the caller starts `ahioenc`/`ahiodec` only when its requested device is present |
-| REQ-O20 | Session preparation shall be one interface with a platform implementation each: Android foreground service, wake and multicast locks and audio focus; iOS audio session and background audio; macOS App Nap prevention; Linux scheduling policy. It hosts the platform levers of REQ-M14, REQ-M111 and REQ-M122, and shall report requested, applied and observed results. | Yes | Partial | Partial | Android C1 (2026-11-02): shared focus backend, explicit JNI context factory, requested/native/observed facts, lifetime tests and Kuaru adoption implemented. Pixel baseline/migrated request facts match and user reports note/background/focus-takeover parity. iOS session backend remains present. Other Android levers, iOS interruption qualification and other OS implementations remain deferred |
+| REQ-O20 | Session preparation shall be one interface with a platform implementation each: Android foreground service, wake and multicast locks and audio focus; iOS audio session and background audio; macOS App Nap prevention; Linux scheduling policy. It hosts the platform levers of REQ-M14, REQ-M111 and REQ-M122, and shall report requested, applied and observed results. | Yes | Partial | Partial | Android C1 (2026-11-02): shared focus backend, explicit JNI context factory, requested/native/observed facts, lifetime tests and Kuaru adoption implemented. Pixel baseline/migrated request facts match and user reports note/background/focus-takeover parity. iOS session backend remains present. C2A (2026-11-02): service/wake resource contract, JNI leases, snapshots, host/JVM tests and Android/iOS compile checks implemented; Kuaru adoption and physical resource qualification are deferred to C2B. Multicast/scheduling, iOS interruption qualification and other OS implementations remain deferred |
 | REQ-O21 | Host facts (logical cores, RAM, architecture, platform name, build fingerprint and the outcome of the realtime scheduling request) shall be provided by the platform layer and recorded with every measurement (REQ-M13). | Yes | Yes | Partial | P11B Linux facts/lifecycle tests and Android cross-build; consumer measurement recording and Apple verification remain |
 
 ### O.6 — Dependencies and verification
@@ -252,3 +252,24 @@ contract.
 
 The vocoder and every DSP optimization/redesign require a later explicit phase
 and `go`; they are not implied by completing P8F–P8J.
+
+
+## REQ-O20 — C2A resource acceptance boundary
+
+The shared session interface shall expose independent background-audio and
+CPU-awake requests, explicit release and read-only observation refresh outside
+realtime callbacks. Reports shall distinguish requested intent, native operation
+acceptance, observed pending/active/stop-pending/inactive/unavailable/failure
+state, ownership and specific operation/cleanup errors. Acceptance alone shall
+not assert resource or audio-device readiness. Unimplemented providers shall
+report unsupported rather than a successful no-op.
+
+The Android implementation shall refuse adoption of externally active/pending
+resources and release only session-owned resources, preserving stop-during-start
+handling, idempotence and explicit cleanup retry. Teardown order is CPU-awake,
+background-audio, then audio focus; one resource failure shall not silently
+abandon other independent resources or impose consumer startup policy.
+
+C2A implementation is host/JVM tested and cross-built. REQ-O20 remains partial:
+consumer adoption, physical-device resource acceptance and other platform levers
+are separately gated. See [C2A acceptance](docs/devreq/android-session-resources/acceptance.md).
