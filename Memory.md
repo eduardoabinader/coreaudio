@@ -830,3 +830,36 @@ REQ-O17/O20 stay partial. Kuaru adoption and device acceptance are next, separat
 approved. Android source behavior is untouched; its shared-interface adoption
 requires a subsequent reuse/parity roadmap after iOS migration. No AHIO adoption,
 endpoint inventory, DSP changes, provisioning or app rebuild was performed.
+
+
+## 2026-11-02 — Android session preparation C1
+
+Approved by standalone go after the presented C1 roadmap. Added neutral Android
+focus backend, injected private driver and Android-only JNI context factory.
+Shared Java listener uses token-based RegisterNatives callbacks; no Kuaru package
+or JNI_OnLoad dependency exists in core. Reports preserve requested attributes,
+native request/abandon results, observed raw change, Java cause and cleanup error.
+ManagedSession retains observations across release and rejects stale generations.
+Android categoryApplied remains false; successful focus grant is distinct from
+both device readiness and product startup policy.
+
+Core Debug/Release CTest 10/10 pass with explicit C++20 (existing logger workaround)
+and pinned local spdlog source. ThreadSanitizer session suites pass 2/2. Consumer
+focused tests pass 9/9; macOS and Android Oboe/OpenSLES builds pass. Hardened store
+R8 task and DEX checks preserve the shared listener/native signature. Signed iOS
+build/verifier pass; physical startup unavailable because no iPhone is connected.
+
+Pixel 9 Pro baseline PID 5447 and migrated PID 6701 report the same media/music
+attributes, GAIN, request=1 and flags=0. Only listener ownership changes to shared
+AudioFocusListener. User confirms matching normal notes, background held-note
+release/fresh-note return and assistant/other-audio focus takeover behavior.
+The Pixel initially disconnected before final native callback capture and cleanup-build
+startup. After reconnection, the exact final APK installed in place and started
+as PID 16759 with shared grant result=1 and matching AudioManager facts. Fresh
+focus callback capture remains pending. Host tests do not substitute for native failure or
+all focus-loss variants. Full consumer evidence, baseline hashes, install-data
+caveat and reproduction are in Kuaru docs/devreq/android-session-preparation/acceptance.md.
+
+C2 service/wake locks, C3 scheduling, endpoint work and AHIO adoption are deferred
+and separately gated. REQ-O20 remains partial. No commit is made automatically;
+Kuaru must pin the complete C1 core revision after the user commits it.

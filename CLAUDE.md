@@ -156,3 +156,14 @@ migration, prepare a separate Android reuse/parity roadmap using the existing
 android_audio_runtime helpers and Kuaru audio-focus seam; do not migrate them
 as a side effect of iOS work. Session activation must never be treated as JUCE
 device readiness, and this layer must not duplicate JUCE's recovery loop.
+
+
+## Android audio-focus migration — C1 (2026-11-02)
+
+The approved C1 phase adds AndroidSessionPreparation and its JNI driver, explicit
+context/class factory and small shared Java listener. REQ-O20 remains partial.
+Only focus migrates; locks, foreground service, scheduling, endpoint inventory
+and AHIO adoption remain outside C1. Use the neutral injected backend tests and
+track native/device results separately. Kuaru preserves its nonfatal denied-focus
+startup policy. Gain is a fact, not a device-recovery command. The next C2 phase
+needs a new roadmap and standalone go. No commits are automatic.

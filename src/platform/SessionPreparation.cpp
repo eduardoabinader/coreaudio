@@ -59,7 +59,13 @@ public:
                     current->report.status = SessionStatus::unavailable;
                     current->report.activationApplied = false;
                 }
-                // End/reset never assert successful device or session recovery.
+                if (event.audioFocusChange && current->report.audioFocus)
+                {
+                    current->report.audioFocus->observedChange = event.audioFocusChange;
+                    if (*event.audioFocusChange < 0)
+                        current->report.status = SessionStatus::interrupted;
+                }
+                // End/gain/reset never assert successful device or session recovery.
                 try
                 {
                     auto callbackCopy = current->callback;
@@ -97,6 +103,8 @@ public:
         {
             const auto cleanup = backend->release();
             state->report.cleanupError = cleanup.error;
+            if (state->report.audioFocus && cleanup.audioFocus)
+                state->report.audioFocus->abandonResult = cleanup.audioFocus->abandonResult;
             needsRelease = cleanup.status == SessionStatus::failed;
         }
         return state->report;
@@ -110,7 +118,10 @@ public:
         ++state->generation;
         state->callback = {};
         const auto requested = state->report.requested;
+        const auto observedFocus = state->report.audioFocus
+            ? state->report.audioFocus->observedChange : std::optional<int>{};
         state->report = backend->release();
+        if (state->report.audioFocus) state->report.audioFocus->observedChange = observedFocus;
         state->report.requested = requested;
         needsRelease = state->report.status == SessionStatus::failed;
         return state->report;
@@ -136,7 +147,7 @@ class UnsupportedSession final : public SessionPreparationImplementation
         result.requested = request;
         result.status = SessionStatus::unavailable;
         result.error = SessionError{"prepare", "gigante", 0,
-            "session preparation is implemented only for iOS; other platform migrations are deferred"};
+            "session preparation requires iOS or the explicit Android context-taking factory; other platforms are deferred"};
         return result;
     }
     SessionReport release() noexcept override { return {}; }

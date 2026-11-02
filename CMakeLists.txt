@@ -71,6 +71,8 @@ target_sources(
 target_sources(
     gigantePlatform
     PRIVATE
+        src/platform/AndroidSessionPreparation.cpp
+        src/platform/AndroidAudioFocusDriver.h
         src/platform/SessionPreparation.cpp
         src/platform/SessionPreparationImplementation.h
         include/gigante/SessionPreparation.h
@@ -117,6 +119,9 @@ target_include_directories(
 )
 
 if(ANDROID)
+    target_sources(gigantePlatform PRIVATE
+        src/platform/AndroidSessionJni.cpp
+        include/gigante/AndroidSessionPreparation.h)
     target_sources(
         gigantePlatform
         PRIVATE

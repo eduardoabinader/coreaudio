@@ -35,6 +35,7 @@ void lifecycle()
     expect(f.session->prepare({false}, [](const auto&) {}).status == SessionStatus::failed,
            "unsupported intent rejected");
     auto initial = f.session->prepare({}, [&](const auto&) { ++events; });
+    expect(!initial.audioFocus, "iOS-style preparation invented Android focus facts");
     expect(initial.status == SessionStatus::active && initial.activationApplied
            && initial.categoryApplied && initial.observedCategory == "playback",
            "requested/applied/observed preparation report");

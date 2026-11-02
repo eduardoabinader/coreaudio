@@ -209,7 +209,7 @@ speculative platform infrastructure.
 Group O and Group P extend the structure without changing `giganteCore`.
 Host facts (P11B), the neutral endpoint value/policy layer (P11C), and the
 injected endpoint-monitor lifecycle are present. Concrete platform endpoint
-sources are deferred; SessionPreparation has an iOS backend. Logging has its
+sources are deferred; SessionPreparation has iOS and Android-focus backends. Logging has its
 separate foundation described below.
 
 ```text
@@ -217,7 +217,7 @@ giganteCore      JUCE-free DSP; depends on nothing below
 gigantePlatform  HostFactsSource, AudioEndpoint, AudioBus, EndpointInventory,
                  EndpointPolicy, EndpointMonitor and EndpointChangeSource
                  (present as neutral/injected contracts); no concrete endpoint
-                 source; SessionPreparation with an iOS backend
+                 source; SessionPreparation with iOS and Android-focus backends
 giganteLog       Logger with levels and per-platform backends; Linux/Android
                  foundation present; product-supplied compile ceiling remains
                  while macOS native sink and shared BuildPolicy are deferred
@@ -869,10 +869,11 @@ contract.
 `SessionPreparation` is the neutral public interface in `gigantePlatform`.
 `create()` returns `ManagedSession`, which owns a private
 `SessionPreparationImplementation`. `IosSessionPreparation` implements that
-backend through Objective-C++; non-iOS factories explicitly report unavailable.
+backend through Objective-C++; the no-context factory reports unavailable elsewhere.
+Android now uses the explicit context-taking factory described in C1 below.
 No product, JUCE, Objective-C or AVFoundation types enter the public header.
-Android focus, locks, service and scheduling implementations are unchanged;
-their reuse behind this interface needs its own roadmap after iOS migration.
+Android focus adoption is described in C1 below. Locks, service and scheduling
+remain unchanged and require separately approved phases.
 AHIO adoption is not authorized by this phase.
 
 The initial request supports playback intent only. The iOS backend explicitly
@@ -920,7 +921,8 @@ CMake enables Objective-C++ and links AVFoundation/Foundation only for iOS.
 The backend uses explicit manual Objective-C reference counting independently
 of consumer ARC settings. `gigantePlatform` links no DSP or logger target.
 The private backend injection boundary supports deterministic desktop tests;
-physical iOS session/notification acceptance remains open until Kuaru adoption.
+physical iOS interruption/notification qualification remains open; Kuaru adoption
+and its current device evidence are recorded in the consumer ledger.
 
 Design evidence:
 - [Class collaboration](docs/devreq/ios-session-preparation/session-preparation-class.html)
@@ -929,3 +931,60 @@ Design evidence:
   ([SVG](docs/devreq/ios-session-preparation/prepare-session.svg)).
 - [Events and teardown](docs/devreq/ios-session-preparation/failure-teardown.html)
   ([SVG](docs/devreq/ios-session-preparation/failure-teardown.svg)).
+
+
+### Android session preparation — C1 (2026-11-02)
+
+Only audio focus migrates in C1 (REQ-O20). `AndroidSessionPreparation` implements
+the private session backend and owns an injected `AndroidAudioFocusDriver`.
+The production `JniAudioFocusDriver` is compiled only for Android; a fake drives
+the identical neutral backend in desktop tests. Platform CMake links no DSP.
+No change to JNI_OnLoad or product-package JNI export is required.
+
+The separate Android-only public header exposes
+`createAndroidSessionPreparation(JNIEnv*, jobject, jclass)`. The consumer must
+resolve `com.gigantelabs.platform.AudioFocusListener` through the application
+class loader and supply the application context. The factory retains global
+references and obtains JavaVM; it never knows Kuaru classes or checkout paths.
+Missing context/class/environment and pending Java resolution exceptions become
+specific preparation errors. SessionPreparation.h remains free of JNI types;
+its no-context factory cannot silently infer Android context.
+
+The Java listener forwards token and native change only. C++ registers its
+method through RegisterNatives, with the Java method/class retained by the
+consumer's R8 rules. The registry copies a sink under its own mutex and releases
+that mutex before invoking ManagedSession. Tokens are monotonic and invalidated
+before native abandon. The registry anchor intentionally lives for process life
+to avoid cross-translation-unit static teardown races; release removes each
+active callback entry and its consumer references. Copied late sinks retain only a weak generation-checked
+SessionState, never a raw backend/consumer pointer. Existing ManagedSession
+serialization, callback-side teardown and external in-flight waiting apply.
+JNI calls use bounded local frames; threads attach only when needed and detach
+only when this layer attached them. Context/class/request global refs are
+released by the backend, not the consumer. Java errors retain operation and
+Throwable class/description; request/abandon results retain native integers.
+
+The focus request preserves USAGE_MEDIA (1), CONTENT_TYPE_MUSIC (2),
+AUDIOFOCUS_GAIN (1), and acceptsDelayedFocusGain=false. An optional
+SessionAudioFocusReport records requested fields, native request/abandon result
+and the latest observed change. Android categoryApplied is false because an iOS
+category was not applied; this does not indicate Android failure. Successful
+focus grant sets activationApplied, never device readiness. Denied or unexpected
+delayed grants fail preparation explicitly; Kuaru decides whether that blocks
+startup. Cleanup retains the original request error plus cleanup error separately.
+Failed abandon removes callback acceptance but retains the exact native request
+for explicit cleanup retry. Destruction performs best-effort cleanup.
+
+Events use audioFocusChanged plus the raw integer, distinct from iOS interruption
+and route notifications. Negative changes mark the conservative report interrupted;
+gain never asserts recovery or opens a device. Unknown/zero native values remain
+observable without guessing a product policy. Observations survive release.
+Coreaudio does not release piano notes, schedule UI work, start services, acquire
+wake locks, or change scheduling. Those remain consumer mechanisms/policy until
+their separately approved phases. AHIO is not adopted in C1.
+
+Design evidence (SVG siblings available in the same directory):
+- [Classes](docs/devreq/android-session-preparation/focus-class.html)
+- [Request](docs/devreq/android-session-preparation/request-focus.html)
+- [Changes](docs/devreq/android-session-preparation/focus-change.html)
+- [Failure/teardown](docs/devreq/android-session-preparation/failure-teardown.html)
