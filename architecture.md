@@ -1065,3 +1065,26 @@ C2B evidence is recorded in the consumer's android-session-resources acceptance
 ledger. Physical pending-start races, denial/exception injection and other OS
 implementations remain separately qualified; successful ordinary shutdown alone
 does not verify every REQ-O20 path.
+
+
+## Android scheduling evaluation — C3A
+
+C3A evaluates whether Kuaru needs its additional Android scheduling mechanism
+with the pinned JUCE 9.0.4 backend. The consumer introduces a legacy/juce build
+selector and artifact verification, not a new shared platform interface. Legacy
+remains the default. No AndroidAudioThreadScheduler code is moved into coreaudio,
+and no iOS scheduler or common optimizer superclass is introduced.
+
+The existing callback/worker boundary and its unresolved publication/lifetime
+questions are recorded in [audit](docs/devreq/android-thread-scheduling/audit.md).
+Actual policy, realtime priority and nice must be observed independently; native
+underruns and application timing heuristics remain distinct. Consumer comparison
+evidence does not automatically qualify every Android route, device or buffer.
+Any later retirement/migration requires its own reviewed scope and approval.
+
+Design previews: [classes](docs/devreq/android-thread-scheduling/scheduling-class.html),
+[comparison](docs/devreq/android-thread-scheduling/callback-worker.html),
+[failures](docs/devreq/android-thread-scheduling/handoff-failure.html), and
+[lifecycle](docs/devreq/android-thread-scheduling/thread-retirement.html). Each has
+a sibling SVG. Consumer protocol/results live in its android-thread-scheduling
+comparison and acceptance documents.

@@ -177,3 +177,14 @@ preparation retain their semantics. REQ-O20 remains partial; host/JVM fixture an
 Android/iOS build evidence is not physical service qualification. Kuaru resource
 ownership adoption is C2B and needs a separately approved roadmap. Do not switch
 consumer calls, add multicast/scheduling or change UI/audio policies in C2A.
+
+
+## Android scheduling comparison — C3A
+
+C3A compares Kuaru legacy scheduling against JUCE-only scheduling on each
+Android backend. It adds no shared scheduler API, new iOS mechanism or superclass.
+Keep legacy as the default and retain the existing shared runtime for other
+consumers. Core source remains unchanged by this experiment. Do not migrate or
+retire mechanisms based only on requested priority, app timing heuristics, or
+unpopulated latency fields. See docs/devreq/android-thread-scheduling/audit.md
+and the consumer acceptance ledger before proposing a later implementation.

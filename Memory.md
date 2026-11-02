@@ -934,3 +934,27 @@ Core baseline is c299ef3 with this local patch; no commit/gitlink update is
 claimed. See the consumer docs/devreq/android-session-resources/acceptance.md
 for artifacts, detailed qualification and full file reconciliation. Earlier
 Java-test relocation documentation edits are retained.
+
+
+## C3A Android scheduling comparison — 2026-11-02
+
+The consumer now has an explicit legacy|juce scheduling comparison selector; legacy
+remains the default. Four optimized profiling builds passed on JUCE 9.0.4.
+Matched Pixel 9 Pro speaker trials (48 kHz/480 frames, Cigar reeds/default)
+showed zero native underrun-counter deltas in all twelve 30-second windows.
+Callback-processing ranges overlap; these trials demonstrate no custom-hook
+benefit. Both JUCE-only backends passed user listening/idle/Home-return checks.
+Both modes/backends passed reopen and ordinary power-exit/fresh-launch checks;
+the existing LookAndFeel teardown assertion remains deferred in all four.
+Framework render threads already used FIFO/RT2. Legacy OpenSLES also changed
+main-thread nice during synchronous priming, so first processing call must not
+be assumed to identify the render thread. No default flip, scheduler removal,
+new shared API or AHIO change is authorized by this comparison.
+
+Normal legacy/Oboe dev APK was restored, with the prior 1920-frame setting.
+iOS dev build passed; runtime not repeated. The stale Bluetooth output entry
+reported with Bluetooth off cleared after a cold start but has no source fix;
+its exact inventory layer remains unresolved. Bluetooth output blocking and
+broader device qualification are separate deferred work. See the consumer
+docs/devreq/android-thread-scheduling/{comparison,acceptance}.md for protocol,
+artifact identities, metric semantics, signing workaround and check limits.
