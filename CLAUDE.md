@@ -201,3 +201,18 @@ adoption is authorized. Record builds, artifact rejection of legacy linkage,
 matched native counters and lifecycle/listening evidence independently; retain
 Bluetooth and LookAndFeel defects as deferred. Broader qualification and other
 platform mechanisms keep REQ-O20/O21 partial.
+
+
+## REST engine — Group R (2026-11-02)
+
+`gigante::restcore` (Group R, `REQ-RC`) is implemented through R1: tested on macOS and
+compile-only on Android and iOS. It is a narrow, user-requested exception to the Scope
+boundary above, and does not admit other RPC, device or UI infrastructure. It stays
+opt-in through `GIGANTE_BUILD_REST`, default `OFF`, and core, platform and log targets
+gain no network dependency. restcore is C++17 and does not link `gigante::log`.
+cpp-httplib v0.64.0 is pinned by commit, and only the two `CppHttplib*` files include
+it; libhv is the fallback. The public API is C++ only for now. Use is limited to trusted
+networks until the gaps in docs/devreq/rest-engine/feasibility.md are mitigated.
+Loopback sockets in tests are the only exception to the no-network test rule.
+`modules/grest-cpp` is superseded. Engine APIs are never called from an audio callback.
+Each phase needs its own roadmap and standalone `go`; project adoption is not authorized.

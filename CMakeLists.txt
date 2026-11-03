@@ -9,6 +9,10 @@ project(
 
 option(GIGANTE_BUILD_TESTS "Build Gigante Labs Core tests" ON)
 option(GIGANTE_WARNINGS_AS_ERRORS "Treat Gigante Labs Core warnings as errors" ON)
+option(GIGANTE_BUILD_REST "Build the opt-in gigante::restcore REST engine" OFF)
+option(GIGANTE_REST_ALLOW_PLAINTEXT "Keep plaintext HTTP support in gigante::restcore" ON)
+set(GIGANTE_REST_TLS_BACKEND "AUTO" CACHE STRING "restcore TLS backend: AUTO, OPENSSL, MBEDTLS or NONE")
+set_property(CACHE GIGANTE_REST_TLS_BACKEND PROPERTY STRINGS AUTO OPENSSL MBEDTLS NONE)
 set(GIGANTE_REVISION "unknown" CACHE STRING "Exact source revision for reproducible build identity")
 set(GIGANTE_JUCE_TARGET "" CACHE STRING
     "Existing consumer-provided interface target for the pinned JUCE modules")
@@ -235,6 +239,10 @@ endfunction()
 gigante_enable_project_warnings(giganteCore)
 gigante_enable_project_warnings(gigantePlatform)
 gigante_enable_project_warnings(giganteLog)
+
+if(GIGANTE_BUILD_REST)
+    include(cmake/GiganteRest.cmake)
+endif()
 
 if(GIGANTE_BUILD_TESTS)
     include(CTest)

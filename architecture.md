@@ -1105,3 +1105,50 @@ ownership, callback, failure and shutdown collaborations. The consumer
 docs/devreq/android-thread-scheduling/retirement{,-acceptance}.md records
 implementation and verification separately. Historical C3A observations are
 retained in the audit; they do not imply universal device qualification.
+
+
+## REST engine — Group R
+
+`gigante::restcore` is the opt-in REST client and server engine (`REQ-RC`), agreed
+with the user on 2026-11-02 and implemented through R1. The target is off by default
+(`GIGANTE_BUILD_REST`), and `core`, `platform` and `log` gain no dependency on it.
+
+Projects use the C++ classes `RestServer` and `RestClient` from `include/gigante`.
+There is no C API until a plain-C project needs one. cpp-httplib `v0.64.0` sits behind
+`HttpTransport` and `HttpClientTransport`: only `CppHttplibTransport` and
+`CppHttplibClientTransport` include `httplib.h`, so swapping the library stays contained.
+
+Handlers run concurrently on the connection's server thread by default. A project may
+inject a `RestDispatcher` to reach a Qt or JUCE thread, which adds safe handoff but no
+capacity, because the server thread stays held until the response is sent. Long work
+replies 202 and reports through `status`. Engine APIs are never called from an audio
+thread.
+
+Common routes live under `/core/v1/`. `health`, `heartbeat`, `status`,
+`getBuildVersion`, `getCapabilities` and `checkDeps` are always present. Service
+lifecycle is opt-in through registered callbacks, and runs on its own worker thread
+after the reply. Live streams, `copy*` and diagnostics arrive opt-in in R2, and
+`deploy*` is off at build time and separately gated in R6. Project routes stay
+entirely with each project.
+
+Each connection holds a pool thread, including idle ones. `CapacityGate`, which arrives
+in the target with R2, caps streams and transfers at the route and so keeps threads
+free for `health`. It does not protect against idle-connection floods, so the design
+is for up to 100 clients on trusted networks. See the
+[R0 report](docs/devreq/rest-engine/feasibility.md) and
+[R1 acceptance](docs/devreq/rest-engine/r1-acceptance.md).
+
+Design diagrams:
+[layers](docs/devreq/rest-engine/restcore-layers.html),
+[server classes](docs/devreq/rest-engine/server-class.html),
+[client classes](docs/devreq/rest-engine/client-class.html),
+[routes and start](docs/devreq/rest-engine/start-and-routes.html),
+[TLS and profiles](docs/devreq/rest-engine/tls-security.html),
+[requests](docs/devreq/rest-engine/request-flow.html),
+[service lifecycle](docs/devreq/rest-engine/service-lifecycle.html),
+[live streams](docs/devreq/rest-engine/live-stream.html),
+[overload](docs/devreq/rest-engine/overload.html),
+[copy](docs/devreq/rest-engine/copy-transfer.html),
+[deploy](docs/devreq/rest-engine/deploy-flow.html),
+[shutdown](docs/devreq/rest-engine/shutdown.html) and
+[client flow](docs/devreq/rest-engine/client-flow.html). Each has a sibling SVG.

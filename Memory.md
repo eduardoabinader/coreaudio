@@ -1004,3 +1004,56 @@ broader device/route/buffer qualification and other platform mechanisms remain
 deferred. REQ-AM04/O20/O21 remain partial overall. See the consumer
 docs/devreq/android-thread-scheduling/retirement{,-acceptance}.md for exact
 protocol, artifact identities, metrics, scope/file reconciliation and limits.
+
+
+## Group R engine change — 2026-11-02
+
+The user replaced libhv with cpp-httplib after stating that MQTT is not needed
+and that simultaneous clients will not exceed 100. This supersedes the libhv
+selection in the earlier Group R entry. Group R stays a draft with no source,
+dependency or CMake target. Evidence comes from reading commit a18895f without
+compiling it. Its 2012 origin is not treated as evidence: most current lines
+date from 2025 or 2026, and the mbedTLS, SSE client and WebSocket code is recent.
+Threads held by open streams are the main capacity risk, so streams and transfers
+get route-level caps that leave room for health and status. libhv remains the
+fallback for a concrete blocker or a later scale requirement.
+
+
+## Group R approved — 2026-11-02
+
+The user approved Group R and confirmed: grest-cpp is superseded; copy and deploy
+are operations on a running server; execCmd is development-only; names use
+gigante::restcore and giganteRest*. The CLAUDE.md scope exception, the
+library-only Simulator build and no Kuaru store change are defaults the user did
+not answer individually. The user sent `r0 go` before seeing a roadmap, so the R0
+roadmap was presented for a new go under GLC-GOV-09; no R0 work has started.
+
+
+## R0 closed — 2026-11-02
+
+The user stopped R0 early and chose to use cpp-httplib v0.64.0 (24e58ce), limited
+to trusted networks until the idle-connection and stalled-client gaps are mitigated.
+Mac results on OpenSSL 3.5.9 and Mbed TLS 3.6.7: TLS, lifetime and client checks
+pass; 100 clients keep health responsive; ASan and UBSan are clean. Under capacity
+load TSan still reports upstream's last_ssl_error_ write and a client cipher-list
+race, whose fix was not rechecked. Android, iOS, phone capacity, larger-queue
+sizing and fuzzing were not completed; R1 starts with Android and iOS builds, and
+fuzzing moves to R5. Kuaru's crypto-only Mbed TLS conflicts with a TLS-enabled build
+(206 symbols), and its 3.6.3.1 pin lacks later security fixes, which needs its own
+decision. No requirement is verified. See docs/devreq/rest-engine/feasibility.md.
+
+
+## R1 complete — 2026-11-02
+
+After an architecture discussion the user chose: code in src/rest with the target off
+by default; a C++ API only for now; a smaller class set keeping HttpTransport;
+concurrent handlers with an optional dispatcher; an always-on common base with opt-in
+groups; logs, artifacts and live streams in R2 with copyList added. R1 passes 17 of 17
+tests on OpenSSL 3.5.9 and Mbed TLS 3.6.7 on macOS arm64, with no ASan, UBSan or TSan
+report, and curl interoperability. Android arm64-v8a and x86_64 and iOS device and
+Simulator compile only. With the option off, nothing new is built or fetched. restcore
+takes a log callback because Logger.h needs C++20. A dispatcher frees no server thread,
+so REQ-RC35 was corrected. Tests found one real bug: a second requestStop aborted on an
+unjoined thread. Not verified: device runtime, Linux, the plaintext-removal refusal,
+RC15's own TLS minimum, and the default burst sizing. See
+docs/devreq/rest-engine/r1-acceptance.md.

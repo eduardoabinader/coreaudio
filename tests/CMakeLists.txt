@@ -111,3 +111,33 @@ target_compile_features(giganteAndroidSessionResourceTests PRIVATE cxx_std_17)
 gigante_enable_project_warnings(giganteAndroidSessionResourceTests)
 add_test(NAME giganteAndroidSessionResourceTests COMMAND giganteAndroidSessionResourceTests)
 set_tests_properties(giganteAndroidSessionResourceTests PROPERTIES TIMEOUT 20)
+
+if(GIGANTE_BUILD_REST)
+    add_library(giganteRestPublicHeaderIsolation OBJECT RestPublicHeaderIsolation.cpp)
+    target_include_directories(giganteRestPublicHeaderIsolation PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../include")
+    set_target_properties(giganteRestPublicHeaderIsolation PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)
+    gigante_enable_project_warnings(giganteRestPublicHeaderIsolation)
+
+    find_program(GIGANTE_REST_OPENSSL_PROGRAM openssl)
+    set(giganteRestCerts "${CMAKE_CURRENT_BINARY_DIR}/restTestCerts")
+    add_test(
+        NAME giganteRestCertificates
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/rest_feasibility/generateTestCerts.sh" "${giganteRestCerts}"
+    )
+    set_tests_properties(giganteRestCertificates PROPERTIES FIXTURES_SETUP giganteRestCertificates)
+
+    foreach(restTest RestServerTests RestSecurityTests RestServiceLifecycleTests RestClientTests)
+        add_executable(gigante${restTest} ${restTest}.cpp)
+        target_link_libraries(gigante${restTest} PRIVATE gigante::restcore)
+        set_target_properties(gigante${restTest} PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)
+        gigante_enable_project_warnings(gigante${restTest})
+        add_test(NAME gigante${restTest} COMMAND gigante${restTest} "${giganteRestCerts}")
+        set_tests_properties(gigante${restTest} PROPERTIES LABELS rest FIXTURES_REQUIRED giganteRestCertificates TIMEOUT 120)
+    endforeach()
+
+    add_test(
+        NAME giganteRestCurlInterop
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/restCurlInteropTests.sh" "$<TARGET_FILE:giganteRestServerTests>" "${giganteRestCerts}"
+    )
+    set_tests_properties(giganteRestCurlInterop PROPERTIES LABELS rest FIXTURES_REQUIRED giganteRestCertificates TIMEOUT 60)
+endif()

@@ -204,10 +204,12 @@ initialize its own windowing toolkit.
 
 ## Group R — REST engine (`restcore`)
 
-**Status: draft for user review, 2026-11-02.** No requirement in this group is
-approved or implemented. `Draft` in the Specified column becomes `Yes` only when
-the user approves it. No source, dependency or CMake target exists, and each
-phase needs its own roadmap and `go` (GLC-GOV-09).
+**Status: specified and approved by the user on 2026-11-02; R0 and R1 complete
+within the coverage they record.** `gigante::restcore` is implemented and tested on
+macOS, and compile-only on Android and iOS. No project uses it yet. Partial in the
+Verified column means no device or Linux run. Each phase needs its own roadmap and
+`go` (GLC-GOV-09). This group replaces the deferred specification in
+`modules/grest-cpp`.
 
 `restcore` is the HTTP/HTTPS client and server engine for any C or C++ project,
 most likely those already using this repository. It defines a common endpoint
@@ -216,35 +218,39 @@ set and leaves every domain API to the consuming project. Python
 the consumer-owned domain boundary. The IDs use `REQ-RC` because Kuaru already
 uses `REQ-R`.
 
-libhv is the selected engine by user decision. Its production suitability is a
-hypothesis that R0 must test: a failed criterion is reported with reproducible
-evidence and a mitigation, and the selection is not reopened without a concrete
-serious blocker.
+cpp-httplib is the selected engine by user decision on 2026-11-02, replacing the
+earlier libhv selection. The designed capacity is 100 simultaneous clients and
+MQTT is not needed, so the event-loop scale that favored libhv does not apply,
+and cpp-httplib's safer TLS defaults, request limits and security process carry
+more weight. Its production suitability is a hypothesis that R0 must test: a
+failed criterion is reported with reproducible evidence and a mitigation. libhv
+is the fallback if a concrete blocker or a later scale requirement appears; its
+source observations remain in this file's history at commit `0269cac`.
 
 ### R.1 — Scope and ownership
 
 | ID | Requirement | Specified | Implemented | Verified | Phase / evidence |
 |---|---|---:|---:|---:|---|
-| REQ-RC01 | The engine shall be a product-neutral static library, CMake target `giganteRestCore` with alias `gigante::restcore`, providing server, client, common endpoints and consumer route registration. It shall contain no knowledge of any consumer domain. | Draft | No | No | R1 |
-| REQ-RC02 | The target shall be opt-in through `GIGANTE_BUILD_REST`, default `OFF`. `gigante::core`, `gigante::platform` and `gigante::log` shall gain no network or libhv dependency, and a consumer that does not link `restcore` shall build unchanged and fetch nothing new. | Draft | No | No | R1: dependency audit of a build with the option off |
-| REQ-RC03 | Consumers own domain routes, state machines, authorization decisions, resource identities and every side effect. A handler shall be a thin delegate to the consumer's controller. | Draft | No | No | R1 |
-| REQ-RC04 | The engine shall not use SSH, discover hosts, configure firewalls or start the process that hosts it. Bringing the first process up stays with the consumer's deployment tooling (Python `executor` REQ-EX13/EX14 is one such tool). The in-band `copy` and `deploy` families act only on an already-running server. | Draft | No | No | R1, R6 |
-| REQ-RC05 | The engine is a control and evidence plane. It shall not claim media-transport properties: HTTP streaming does not provide WebRTC-equivalent latency or congestion control, and consumers may run RTP/UDP beside it. | Draft | No | No | R2 |
-| REQ-RC06 | Engine APIs are non-realtime and shall not be called from an audio callback. A consumer that streams audio-thread data shall bridge it through bounded, non-blocking publication outside the callback, keeping the Realtime contract in `CLAUDE.md` intact. | Draft | No | No | R2: call-site audit; consumer xrun evidence belongs to its adoption phase |
+| REQ-RC01 | The engine shall be a product-neutral static library, CMake target `giganteRestCore` with alias `gigante::restcore`, providing server, client, common endpoints and consumer route registration. It shall contain no knowledge of any consumer domain. | Yes | Yes | Partial | R1: [acceptance](docs/devreq/rest-engine/r1-acceptance.md). macOS tests; Android and iOS compile only |
+| REQ-RC02 | The target shall be opt-in through `GIGANTE_BUILD_REST`, default `OFF`. `gigante::core`, `gigante::platform` and `gigante::log` shall gain no network or HTTP library dependency, and a consumer that does not link `restcore` shall build unchanged and fetch nothing new. | Yes | Yes | Partial | R1: [acceptance](docs/devreq/rest-engine/r1-acceptance.md). macOS tests; Android and iOS compile only |
+| REQ-RC03 | Consumers own domain routes, state machines, authorization decisions, resource identities and every side effect. A handler shall be a thin delegate to the consumer's controller. | Yes | Yes | Partial | R1: [acceptance](docs/devreq/rest-engine/r1-acceptance.md). macOS tests; Android and iOS compile only |
+| REQ-RC04 | The engine shall not use SSH, discover hosts, configure firewalls or start the process that hosts it. Bringing the first process up stays with the consumer's deployment tooling (Python `executor` REQ-EX13/EX14 is one such tool). The in-band `copy` and `deploy` families act only on an already-running server. | Yes | Yes | Partial | R1: [acceptance](docs/devreq/rest-engine/r1-acceptance.md). macOS tests; Android and iOS compile only |
+| REQ-RC05 | The engine is a control and evidence plane. It shall not claim media-transport properties: HTTP streaming does not provide WebRTC-equivalent latency or congestion control, and consumers may run RTP/UDP beside it. | Yes | No | No | R2 |
+| REQ-RC06 | Engine APIs are non-realtime and shall not be called from an audio callback. A consumer that streams audio-thread data shall bridge it through bounded, non-blocking publication outside the callback, keeping the Realtime contract in `CLAUDE.md` intact. | Yes | No | No | R2: call-site audit; consumer xrun evidence belongs to its adoption phase |
 
 ### R.2 — Transport security and the development default
 
 | ID | Requirement | Specified | Implemented | Verified | Phase / evidence |
 |---|---|---:|---:|---:|---|
-| REQ-RC10 | Server and client configuration shall require an explicit security profile, `development` or `production`, with no implicit value. The consumer maps its own release types: core shall not depend on Kuaru's `SinuBuildPolicy` (P12D remains deferred). | Draft | No | No | R1 |
-| REQ-RC11 | `development`: HTTP is the default scheme and the default bind is loopback. HTTPS remains available. A non-loopback plaintext listener requires a separate explicit setting and shall emit a warning naming the address. | Draft | No | No | R1 |
-| REQ-RC12 | `production`: HTTPS is mandatory. A plaintext listener, an `http://` client URL or a missing certificate shall fail with a specific error. `GIGANTE_REST_ALLOW_PLAINTEXT=OFF` shall remove plaintext support at build time. | Draft | No | No | R1: negative tests for each case |
-| REQ-RC13 | A TLS initialization failure shall never downgrade to HTTP. Start shall fail and report the backend, the operation and the cause. | Draft | No | No | R1: injected bad certificate and key |
-| REQ-RC14 | `GIGANTE_REST_TLS_BACKEND` shall accept `AUTO`, `OPENSSL`, `MBEDTLS` or `NONE`. Defaults: OpenSSL on Linux and macOS; mbedTLS on embedded Linux, Android and iOS, subject to R0. `AUTO` shall never resolve to `NONE` or to libhv's implicit Apple SecureTransport backend, and configure shall fail when no permitted backend is found. `NONE` is valid only with development-profile builds. | Draft | No | No | R0, R1 |
-| REQ-RC15 | TLS 1.2 is the minimum and TLS 1.3 is preferred where the selected backend supports it. The engine shall enforce the minimum itself rather than relying on backend defaults, and shall report the negotiated version. Server certificate and key are validated at start, and mutual TLS is optional. | Draft | No | No | R0, R1: rejected-downgrade handshake per backend |
-| REQ-RC16 | The client shall verify the peer certificate and hostname by default in both profiles. Disabling either requires an explicit per-client setting, is refused in `production`, and is logged. Pinning a development certificate is the supported alternative. | Draft | No | No | R1: wrong-host and untrusted-CA negative tests per backend |
-| REQ-RC17 | Authentication is a required decision per route: each route declares a scheme or an explicit `none`. In `production`, every route other than minimal `health` and `heartbeat` requires authentication unless the consumer overrides that route by name. Credentials shall not be hardcoded, logged or returned. | Draft | No | No | R1 |
-| REQ-RC18 | The non-loopback default shall never be inherited from libhv: every listener address is set explicitly from validated configuration. An unauthenticated wildcard listener is non-conforming in `production`. | Draft | No | No | R1 |
+| REQ-RC10 | Server and client configuration shall require an explicit security profile, `development` or `production`, with no implicit value. The consumer maps its own release types: core shall not depend on Kuaru's `SinuBuildPolicy` (P12D remains deferred). | Yes | Yes | Partial | R1: [acceptance](docs/devreq/rest-engine/r1-acceptance.md). macOS tests; Android and iOS compile only |
+| REQ-RC11 | `development`: HTTP is the default scheme and the default bind is loopback. HTTPS remains available. A non-loopback plaintext listener requires a separate explicit setting and shall emit a warning naming the address. | Yes | Yes | Partial | R1: [acceptance](docs/devreq/rest-engine/r1-acceptance.md). macOS tests; Android and iOS compile only |
+| REQ-RC12 | `production`: HTTPS is mandatory. A plaintext listener, an `http://` client URL or a missing certificate shall fail with a specific error. `GIGANTE_REST_ALLOW_PLAINTEXT=OFF` shall remove plaintext support at build time. | Yes | Yes | Partial | R1: profile refusals tested. The build flag compiles, but its refusal has no test |
+| REQ-RC13 | A TLS initialization failure shall never downgrade to HTTP. Start shall fail and report the backend, the operation and the cause. | Yes | Yes | Partial | R1: [acceptance](docs/devreq/rest-engine/r1-acceptance.md). macOS tests; Android and iOS compile only |
+| REQ-RC14 | `GIGANTE_REST_TLS_BACKEND` shall accept `AUTO`, `OPENSSL`, `MBEDTLS` or `NONE`. Defaults: OpenSSL on Linux and macOS; mbedTLS on embedded Linux, Android and iOS, subject to R0. `AUTO` shall never resolve to `NONE`, upstream's use-if-available detection shall be disabled in favor of an explicit choice, and configure shall fail when no permitted backend is found. cpp-httplib's wolfSSL backend is not offered (RC75). `NONE` is valid only with development-profile builds. | Yes | Yes | Partial | R1: [acceptance](docs/devreq/rest-engine/r1-acceptance.md). macOS tests; Android and iOS compile only |
+| REQ-RC15 | TLS 1.2 is the minimum and TLS 1.3 is preferred where the selected backend supports it. The engine shall enforce the minimum itself rather than relying on backend defaults, and shall report the negotiated version. Server certificate and key are validated at start, and mutual TLS is optional. | Yes | Partial | Partial | R1 relies on the library's TLS 1.2 minimum; R0 confirmed rejection on the probes. The engine does not yet enforce it itself or report the negotiated version |
+| REQ-RC16 | The client shall verify the peer certificate and hostname by default in both profiles. Disabling either requires an explicit per-client setting, is refused in `production`, and is logged. Pinning a development certificate is the supported alternative. | Yes | Yes | Partial | R1: [acceptance](docs/devreq/rest-engine/r1-acceptance.md). macOS tests; Android and iOS compile only |
+| REQ-RC17 | Authentication is a required decision per route: each route declares a scheme or an explicit `none`. In `production`, every route other than minimal `health` and `heartbeat` requires authentication unless the consumer overrides that route by name. Credentials shall not be hardcoded, logged or returned. | Yes | Yes | Partial | R1: [acceptance](docs/devreq/rest-engine/r1-acceptance.md). macOS tests; Android and iOS compile only |
+| REQ-RC18 | Every listener address shall be set explicitly from validated configuration, never inherited from an engine default. An unauthenticated wildcard listener is non-conforming in `production`. | Yes | Yes | Partial | R1: [acceptance](docs/devreq/rest-engine/r1-acceptance.md). macOS tests; Android and iOS compile only |
 
 ### R.3 — Common endpoints
 
@@ -254,128 +260,161 @@ their own routes under their own prefixes, for example `/api/v1/`.
 
 | ID | Requirement | Specified | Implemented | Verified | Phase / evidence |
 |---|---|---:|---:|---:|---|
-| REQ-RC20 | Every server shall provide `health` (`GET /core/v1/health`): readiness from consumer-registered named checks, returning 200 or 503. It shall not expose secrets or filesystem paths. | Draft | No | No | R1 |
-| REQ-RC21 | Every server shall provide `heartbeat` (`GET /core/v1/heartbeat`): liveness, uptime, instance identity and optional consumer build identity, as one cheap call the client polls. Failure thresholds are client policy. | Draft | No | No | R1 |
-| REQ-RC22 | Every server shall provide `status` (`GET /core/v1/status`): engine state, bound addresses, scheme, TLS state, connection and limit usage, active streams and transfers, service states, and an optional consumer detail object. Requested and effective configuration shall remain distinguishable. | Draft | No | No | R1 |
-| REQ-RC23 | Every server shall provide `getBuildVersion` and `getCapabilities`: API version, build identity, enabled common routes, stream lanes, limits and TLS backend. Host facts come from an injected provider, not from a new detection path. `checkDeps` is a pass-through to a consumer-supplied report. | Draft | No | No | R1 |
-| REQ-RC24 | Service lifecycle is opt-in: `startService`, `stopService`, `restartService` and service listing, under `/core/v1/services/{name}/`, act only on logical services the host registers through callbacks. They shall respond `202 Accepted` before the callback runs and never run it on an event-loop thread. Acceptance means dispatch, not completion, and `status` reports the outcome. Stopping the hosting server shall drain gracefully after the response is sent. | Draft | No | No | R1: ordering tests including self-stop |
-| REQ-RC25 | Live streaming is declared by the consumer: `GET /core/v1/streams` lists descriptors and `GET /core/v1/streams/{id}/live` subscribes. Each descriptor states lane (SSE, chunked, WebSocket or binary), media type, format name and version, encoding, framing, live or finite behavior, cursor semantics and delivery policy (REQ-RC42). The engine treats payloads as opaque. | Draft | No | No | R2 |
-| REQ-RC26 | Bounded diagnostics are opt-in: `getLog` over consumer-supplied roots with match expressions, never request paths; `cmdStatus` from a consumer-owned manager, without scanning the process table; and `appendLogMarker` naming a logical command. Output is bounded, and symlinks and non-log files are excluded. | Draft | No | No | R2 |
-| REQ-RC27 | The `copy` family is opt-in and authenticated: `copyCreate`, `copyUpload`, `copyDownload`, `copyStatus` and `copyCancel`. Requests name consumer-registered resource IDs and never filesystem paths or URLs. It shall stream without whole-file buffering, enforce size limits, check free space up front, support resume, verify a declared digest, and commit atomically so a failed transfer leaves no partial destination. | Draft | No | No | R2: traversal, truncation and digest-mismatch tests |
-| REQ-RC28 | The `deploy` family is opt-in and separately gated by `GIGANTE_REST_ENABLE_DEPLOY`, default `OFF`: `deployStage`, `deployActivate`, `deployStatus` and `deployRollback`. It consumes completed `copy` transfers and a manifest. Pre-flight checks (architecture, ABI, dependencies, digest) reject an incompatible payload before commit. The engine never executes a payload: activation and rollback are consumer callbacks. `production` additionally requires a verified manifest signature. | Draft | No | No | R6: separately approved, with its own security review |
-| REQ-RC29 | `deploy` and `execCmd` shall not be available on iOS or in store-distributed Android artifacts, because both platforms restrict downloaded executable code. The exact policy text shall be checked in R6 and whenever a store release is prepared. | Draft | No | No | R6: artifact symbol audit |
-| REQ-RC30 | `execCmd` (grest's remote shell escape hatch) is development-profile only, requires an explicit build option and registration, and shall not compile into a `production`-capable artifact. | Draft | No | No | R6, pending the open decision below |
-| REQ-RC31 | Every common route shall use a versioned structured error containing a stable code, safe message, request identity and retryability. Internal exceptions, paths, credentials and backend errors shall not leak. | Draft | No | No | R1 |
+| REQ-RC20 | Every server shall provide `health` (`GET /core/v1/health`): readiness from consumer-registered named checks, returning 200 or 503. It shall not expose secrets or filesystem paths. | Yes | Yes | Partial | R1: [acceptance](docs/devreq/rest-engine/r1-acceptance.md). macOS tests; Android and iOS compile only |
+| REQ-RC21 | Every server shall provide `heartbeat` (`GET /core/v1/heartbeat`): liveness, uptime, instance identity and optional consumer build identity, as one cheap call the client polls. Failure thresholds are client policy. | Yes | Yes | Partial | R1: [acceptance](docs/devreq/rest-engine/r1-acceptance.md). macOS tests; Android and iOS compile only |
+| REQ-RC22 | Every server shall provide `status` (`GET /core/v1/status`): engine state, bound addresses, scheme, TLS state, connection and limit usage, active streams and transfers, service states, and an optional consumer detail object. Requested and effective configuration shall remain distinguishable. | Yes | Yes | Partial | R1: [acceptance](docs/devreq/rest-engine/r1-acceptance.md). macOS tests; Android and iOS compile only |
+| REQ-RC23 | Every server shall provide `getBuildVersion` and `getCapabilities`: API version, build identity, enabled common routes, stream lanes, limits and TLS backend. Host facts come from an injected provider, not from a new detection path. `checkDeps` is a pass-through to a consumer-supplied report. | Yes | Yes | Partial | R1: [acceptance](docs/devreq/rest-engine/r1-acceptance.md). macOS tests; Android and iOS compile only |
+| REQ-RC24 | Service lifecycle is opt-in: `startService`, `stopService`, `restartService` and service listing, under `/core/v1/services/{name}/`, act only on logical services the host registers through callbacks. They shall respond `202 Accepted` before the callback runs and never run it on a server connection thread. Acceptance means dispatch, not completion, and `status` reports the outcome. Stopping the hosting server shall drain gracefully after the response is sent. | Yes | Yes | Partial | R1: [acceptance](docs/devreq/rest-engine/r1-acceptance.md). macOS tests; Android and iOS compile only |
+| REQ-RC25 | Live streaming is declared by the consumer: `GET /core/v1/streams` lists descriptors and `GET /core/v1/streams/{id}/live` subscribes. Each descriptor states lane (SSE, chunked, WebSocket or binary), media type, format name and version, encoding, framing, live or finite behavior, cursor semantics and delivery policy (REQ-RC42). The engine treats payloads as opaque. | Yes | No | No | R2 |
+| REQ-RC26 | Bounded diagnostics are opt-in: `getLog` over consumer-supplied roots with match expressions, never request paths; `cmdStatus` from a consumer-owned manager, without scanning the process table; and `appendLogMarker` naming a logical command. Output is bounded, and symlinks and non-log files are excluded. | Yes | No | No | R2 |
+| REQ-RC27 | The `copy` family is opt-in and authenticated: `copyCreate`, `copyUpload`, `copyDownload`, `copyList`, `copyStatus` and `copyCancel`. Requests name consumer-registered resource IDs and never filesystem paths or URLs. It shall stream without whole-file buffering, enforce size limits, check free space up front, support resume, verify a declared digest, and commit atomically so a failed transfer leaves no partial destination. `copyList` lets a client discover the logs and artifacts it may download. | Yes | No | No | R2: traversal, truncation and digest-mismatch tests |
+| REQ-RC28 | The `deploy` family is opt-in and separately gated by `GIGANTE_REST_ENABLE_DEPLOY`, default `OFF`: `deployStage`, `deployActivate`, `deployStatus` and `deployRollback`. It consumes completed `copy` transfers and a manifest. Pre-flight checks (architecture, ABI, dependencies, digest) reject an incompatible payload before commit. The engine never executes a payload: activation and rollback are consumer callbacks. `production` additionally requires a verified manifest signature. | Yes | No | No | R6: separately approved, with its own security review |
+| REQ-RC29 | `deploy` and `execCmd` shall not be available on iOS or in store-distributed Android artifacts, because both platforms restrict downloaded executable code. The exact policy text shall be checked in R6 and whenever a store release is prepared. | Yes | No | No | R6: artifact symbol audit |
+| REQ-RC30 | `execCmd` (grest's remote shell escape hatch) is development-profile only, requires an explicit build option and registration, and shall not compile into a `production`-capable artifact. | Yes | No | No | R6 |
+| REQ-RC31 | Every common route shall use a versioned structured error containing a stable code, safe message, request identity and retryability. Internal exceptions, paths, credentials and backend errors shall not leak. | Yes | Yes | Partial | R1: [acceptance](docs/devreq/rest-engine/r1-acceptance.md). macOS tests; Android and iOS compile only |
 
 ### R.4 — Consumer routes and REST behavior
 
 | ID | Requirement | Specified | Implemented | Verified | Phase / evidence |
 |---|---|---:|---:|---:|---|
-| REQ-RC33 | Route registration shall support GET, POST, PUT, PATCH, DELETE, OPTIONS and HEAD with dynamic path parameters written `{id}`, query parameters, headers, JSON and binary bodies. Path parameters are validated explicitly at run time: no compile-time typed checking is claimed. | Draft | No | No | R1 |
-| REQ-RC34 | The server shall provide ordered middleware, authentication hooks, configurable CORS (off by default), appropriate status codes and request-size limits enforced before the body is buffered. | Draft | No | No | R1: oversize rejection without memory growth |
-| REQ-RC35 | Consumer handlers shall run on an engine-owned, bounded dispatcher or an injected one, never on an event-loop thread. A full dispatcher shall produce a structured 503, not an unbounded queue. An injected dispatcher lets a Qt or JUCE consumer marshal work onto its own thread. | Draft | No | No | R1: saturation and thread-identity tests |
-| REQ-RC36 | Route declarations shall be the single source of truth for the server, the client and a deterministic generated OpenAPI 3.1 document in JSON and YAML, served at `/core/v1/openapi.json` and `/core/v1/openapi.yaml`. Stream semantics OpenAPI cannot express use documented `x-gigante-*` extensions. Tests shall fail on drift between routes and the document. | Draft | No | No | R1, R2 |
-| REQ-RC37 | Mutating routes shall declare idempotency. Requests carry request and correlation IDs, and these appear in errors and logs. The client shall retry automatically only where the route declares it safe. | Draft | No | No | R1 |
+| REQ-RC33 | Route registration shall support GET, POST, PUT, PATCH, DELETE, OPTIONS and HEAD with dynamic path parameters written `{id}` in the public API and translated to the engine's own syntax, plus query parameters, headers, JSON and binary bodies. Path parameters are validated explicitly at run time: no compile-time typed checking is claimed. Consumers shall not depend on the engine's route syntax or regular-expression patterns. | Yes | Yes | Partial | R1: [acceptance](docs/devreq/rest-engine/r1-acceptance.md). macOS tests; Android and iOS compile only |
+| REQ-RC34 | The server shall provide ordered middleware, authentication hooks, configurable CORS (off by default), appropriate status codes and request-size limits enforced before the body is buffered. | Yes | Partial | Partial | R1: fixed chain with auth, CORS and limits. Project-supplied middleware is not implemented, and chunked bodies are limited only by the server-wide limit |
+| REQ-RC35 | Handlers run on the connection's server thread by default, and may run concurrently, so they shall be thread-safe. A project may inject a dispatcher that hands them to its own thread, such as a Qt or JUCE thread, and which shall not be an audio thread. The server thread waits with a deadline: a full queue returns a structured 503 and a missed deadline a structured 504, and a later result is discarded. A dispatcher adds safe handoff, not capacity, because the server thread stays held. Long work shall start, reply 202 and report through `status`. | Yes | Yes | Partial | R1: [acceptance](docs/devreq/rest-engine/r1-acceptance.md). macOS tests; Android and iOS compile only |
+| REQ-RC36 | Deferred by user decision on 2026-11-02, with no phase assigned. Route declarations should eventually drive a deterministic generated OpenAPI 3.1 document and project-route clients. Until then, `RestClient` is typed only for common endpoints, and projects call their own routes through `call`. | Yes | No | No | Deferred |
+| REQ-RC37 | Mutating routes shall declare idempotency. Requests carry request and correlation IDs, and these appear in errors and logs. The client shall retry automatically only where the route declares it safe. | Yes | Yes | Partial | R1: [acceptance](docs/devreq/rest-engine/r1-acceptance.md). macOS tests; Android and iOS compile only |
 
 ### R.5 — Concurrency, streaming and binary transfer
 
 | ID | Requirement | Specified | Implemented | Verified | Phase / evidence |
 |---|---|---:|---:|---:|---|
-| REQ-RC40 | The server shall use non-blocking event loops with a configurable worker count and no per-connection thread, serving short-lived and keep-alive connections over IPv4 and IPv6 with limits on connections, requests, headers, idle time and operation deadlines. Multi-process mode shall not be used. HTTP/1.1 is the baseline. HTTP/2 is not required, and streaming shall not be assumed over it. | Draft | No | No | R0, R1 |
-| REQ-RC41 | Overload shall be bounded and observable: exceeding a limit yields a structured rejection or close and a counter, with a per-connection output limit and a server-wide output budget. Reaching libhv's write-buffer limit, which closes the connection, is a failure of engine gating and shall not be the normal slow-client path. | Draft | No | No | R0, R2: slow-reader test with bounded RSS |
-| REQ-RC42 | Every stream shall declare one delivery policy. `reliable` never drops silently: the producer is told to wait, or the stream ends with an explicit error. `realtime` may drop stale data and shall count and report drops. `broadcast` shares source data between subscribers, with per-subscriber limits and slow-subscriber eviction. No policy shall block a producer's domain operation. | Draft | No | No | R2: each policy under a stalled subscriber |
-| REQ-RC43 | Streams shall support incremental production, cancellation, disconnect propagation, optional heartbeats, slow-client detection and deterministic cleanup. No callback shall run after cancellation completes, including during shutdown. | Draft | No | No | R0, R2: sanitizer runs with abrupt disconnects |
-| REQ-RC44 | Binary transfer shall read and write incrementally, without loading whole files, and support `application/octet-stream`, multipart where required, Range resume, Content-Length or chunked framing, cancellation, progress callbacks, bandwidth limits, size limits and optional integrity checks. `sendfile` is an optimization only where verified with the active TLS mode, with a portable buffered fallback. | Draft | No | No | R2: file larger than the configured memory limit |
-| REQ-RC45 | libhv's static file service, directory index, reverse and forward proxy, script handlers and `WITH_PROTOCOL` shall be disabled unless a later requirement enables them. | Draft | No | No | R0: build-option and route audit |
+| REQ-RC40 | The designed capacity is 100 simultaneous clients, including long-lived streams and transfers, configurable downward per deployment. The server uses cpp-httplib's thread pool with explicit maximum thread and queue values: its unbounded default queue shall not be used. Capacity planning shall count one thread per open stream, transfer or kept-alive connection and two per WebSocket connection, and idle keep-alive time shall be short. Short-lived and keep-alive connections are served over IPv4 and IPv6, with limits on requests, headers, idle time and operation deadlines. HTTP/1.1 is the baseline, and HTTP/2 is not required. The architecture brief's event-loop and 1,000+ connection requirements are deliberately not adopted. | Yes | Partial | Partial | R1: explicit pool and queue limits, short keep-alive, HTTP/1.1. The 100-client capacity was measured in R0 only, and on the Mac only |
+| REQ-RC41 | Overload shall be bounded and observable. Streams and transfers have separate caps enforced at the route, which return a structured 503 and increment a counter before capacity is consumed. Those caps shall leave enough pool capacity that `health`, `heartbeat` and `status` keep answering with streams and transfers at their limits. A full pool queue closes the socket without an HTTP response (upstream behavior), so it shall be counted and treated as the last-resort path. Slow and idle clients are bounded by read and write timeouts and a per-stream output limit. | Yes | No | No | R0, R2: all-streams-busy and slow-reader tests, with bounded RSS and responsive `health` |
+| REQ-RC42 | Every stream shall declare one delivery policy. `reliable` never drops silently: the producer is told to wait, or the stream ends with an explicit error. `realtime` may drop stale data and shall count and report drops. `broadcast` shares source data between subscribers, with per-subscriber limits and slow-subscriber eviction. No policy shall block a producer's domain operation. | Yes | No | No | R2: each policy under a stalled subscriber |
+| REQ-RC43 | Streams shall support incremental production, cancellation, disconnect propagation, optional heartbeats, slow-client detection and deterministic cleanup. No callback shall run after cancellation completes, including during shutdown. | Yes | No | No | R0, R2: sanitizer runs with abrupt disconnects |
+| REQ-RC44 | Binary transfer shall read and write incrementally, without loading whole files, and support `application/octet-stream`, multipart where required, Range resume, Content-Length or chunked framing, cancellation, progress callbacks, bandwidth limits, size limits and optional integrity checks. `sendfile` is an optimization only where verified with the active TLS mode, with a portable buffered fallback. | Yes | No | No | R2: file larger than the configured memory limit |
+| REQ-RC45 | cpp-httplib's mount points shall be unused, `set_file_content` shall never receive a client-supplied path, and zlib, Brotli and zstd support, which upstream's CMake enables by default when available, shall be disabled unless a later requirement enables them. | Yes | No | No | R0: build-option and route audit |
 
 ### R.6 — Client
 
 | ID | Requirement | Specified | Implemented | Verified | Phase / evidence |
 |---|---|---:|---:|---:|---|
-| REQ-RC48 | The engine shall provide an HTTP/HTTPS client built on libhv, with synchronous and asynchronous calls, connect and operation deadlines, cancellation, typed common-endpoint calls, stream subscription and incremental upload and download. Client capability on libhv is an R0 hypothesis. libcurl is the fallback only if R0 reports a concrete blocker. | Draft | No | No | R0, R1, R2 |
-| REQ-RC49 | libcurl shall be used by the functional test client as an independent interoperability check and shall not be linked into `restcore`. | Draft | No | No | R1 |
+| REQ-RC48 | The engine shall provide an HTTP/HTTPS client built on cpp-httplib, with synchronous calls, asynchronous calls through an engine-owned bounded executor, connect and operation deadlines, cancellation, typed common-endpoint calls, stream subscription and incremental upload and download. Client capability is an R0 hypothesis. libcurl is the fallback only if R0 reports a concrete blocker. | Yes | Partial | Partial | R1: synchronous and asynchronous calls, deadlines, cancellation and common-endpoint calls. Stream subscription and incremental transfer are R2 |
+| REQ-RC49 | libcurl shall be used by the functional test client as an independent interoperability check and shall not be linked into `restcore`. | Yes | Yes | Partial | R1: [acceptance](docs/devreq/rest-engine/r1-acceptance.md). macOS tests; Android and iOS compile only |
 
 ### R.7 — MQTT client
 
+Removed by user decision on 2026-11-02: MQTT is not needed. The IDs stay retired
+and shall not be reused. A later need requires a new requirement and engine review.
+
 | ID | Requirement | Specified | Implemented | Verified | Phase / evidence |
 |---|---|---:|---:|---:|---|
-| REQ-RC50 | An optional MQTT client, enabled by `GIGANTE_REST_ENABLE_MQTT` (default `OFF`), shall connect to an external broker, publish, subscribe, deliver callbacks, authenticate and reconnect with configurable backoff, alongside REST and streaming. A broker is out of scope. | Draft | No | No | R3 |
-| REQ-RC51 | MQTT 3.1.1 is the baseline. The protocol version, QoS behavior, retained messages, session semantics and TLS actually supported by the pinned revision shall be measured against a real broker. MQTT 5 shall not be claimed without evidence. Malformed packets from a broker shall not corrupt state (upstream issue #897). | Draft | No | No | R3 |
+| REQ-RC50 | ~~Optional MQTT client~~ | Removed | No | No | Removed 2026-11-02 |
+| REQ-RC51 | ~~MQTT protocol conformance~~ | Removed | No | No | Removed 2026-11-02 |
 
 ### R.8 — Public API, lifetime and logging
 
 | ID | Requirement | Specified | Implemented | Verified | Phase / evidence |
 |---|---|---:|---:|---:|---|
-| REQ-RC55 | The stable public interface shall be a C ABI of opaque handles usable from C, C++, Android JNI, Objective-C and Swift, with a thin header-only C++ RAII facade above it. No exception shall cross the ABI, and no libhv type shall appear in a public header. A test shall compile the public headers without libhv on the include path. | Draft | No | No | R1 |
-| REQ-RC56 | The API shall provide create, configure, start, stop, destroy, running state, bound address and port, and error retrieval, and shall document thread safety, ownership, callback lifetime and shutdown behavior for each. `destroy` shall guarantee that no callback runs after it returns. | Draft | No | No | R1: repeated start/stop/restart under TSan |
-| REQ-RC57 | Multiple independent server and client instances shall coexist in one process with separate certificates, limits and logging. The adapter shall not use libhv's process-global TLS context, global async thread pool or default logger path, and any remaining global effect, such as ignoring `SIGPIPE`, shall be documented. | Draft | No | No | R0, R1: two instances with different certificates |
-| REQ-RC58 | Names follow this repository: public C identifiers use the `gigante` prefix with camelCase (for example `GiganteRestServer`, `giganteRestServerCreate`), headers stay under `include/gigante` and private sources under `src/rest`, extending GLC-GOV-10. | Draft | No | No | R1 |
-| REQ-RC59 | Logging goes through an injected `gigante::Logger` context and metrics through an observable snapshot. libhv's own logging shall be redirected or disabled so that it writes no file on a device. | Draft | No | No | R0, R1 |
+| REQ-RC55 | The public interface shall be C++: `gigante::RestServer`, `gigante::RestClient` and plain value types, with no cpp-httplib type in a public header. A test shall compile the public headers without cpp-httplib on the include path. By user decision on 2026-11-02, there is no C API until a plain-C project needs one, so plain C projects are not yet supported, and JNI or Swift use needs a project-written wrapper. | Yes | Yes | Partial | R1: [acceptance](docs/devreq/rest-engine/r1-acceptance.md). macOS tests; Android and iOS compile only |
+| REQ-RC56 | The API shall provide create, configure, start, stop, destroy, running state, bound address and port, and error retrieval, and shall document thread safety, ownership, callback lifetime and shutdown behavior for each. `destroy` shall guarantee that no callback runs after it returns. | Yes | Yes | Partial | R1: [acceptance](docs/devreq/rest-engine/r1-acceptance.md). macOS tests; Android and iOS compile only |
+| REQ-RC57 | Multiple independent server and client instances shall coexist in one process with separate certificates, limits and logging. Each server shall own its own thread pool. Any remaining process-wide effect, such as the `Server` constructor ignoring `SIGPIPE`, shall be documented, and R0 shall audit the library's static state. | Yes | Yes | Partial | R1: [acceptance](docs/devreq/rest-engine/r1-acceptance.md). macOS tests; Android and iOS compile only |
+| REQ-RC58 | Names follow this repository: camelCase with `Rest` type names in namespace `gigante`, public headers under `include/gigante` and private sources under `src/rest`, extending GLC-GOV-10. Uppercase `GET`, `POST` and similar methods are an agreed exception, because they name HTTP methods. | Yes | Yes | Partial | R1: [acceptance](docs/devreq/rest-engine/r1-acceptance.md). macOS tests; Android and iOS compile only |
+| REQ-RC59 | Logging goes through an injected callback, which a project may forward to its `gigante::Logger`, and metrics through an observable snapshot. restcore shall not link `gigante::log`, because `Logger.h` needs C++20 and restcore is C++17. Logs shall not record credentials. | Yes | Yes | Partial | R1: [acceptance](docs/devreq/rest-engine/r1-acceptance.md). macOS tests; Android and iOS compile only |
 
 ### R.9 — Platforms and mobile
 
 | ID | Requirement | Specified | Implemented | Verified | Phase / evidence |
 |---|---|---:|---:|---:|---|
-| REQ-RC62 | The library build matrix covers Linux x86_64 and ARM64; embedded Linux ARM64, and ARMv7 where supported; macOS arm64 and x86_64; Android arm64-v8a and x86_64; iOS arm64; and iOS Simulator arm64 and x86_64 where supported. An unexecuted platform shall be recorded as unverified, with its exact commands. | Draft | No | No | R0, R5 |
-| REQ-RC63 | The baseline is C++17 (matching the existing core targets) and CMake 3.22, the existing core minimum. Static linking is the embedding path. | Draft | No | No | R1 |
-| REQ-RC64 | Android: a minimal JNI wrapper with lifecycle and thread-attachment rules, documented permission and foreground-service restrictions. Foreground-service ownership stays with `SessionPreparation` and is not duplicated. | Draft | No | No | R4 |
-| REQ-RC65 | iOS: device and simulator builds, XCFramework packaging, Swift and Objective-C use, documented local-network privacy configuration, and an explicit stop or rebind path on suspension. Permanent background availability shall not be promised. | Draft | No | No | R4 |
+| REQ-RC62 | The library build matrix covers Linux x86_64 and ARM64; embedded Linux ARM64, and ARMv7 where supported; macOS arm64 and x86_64; Android arm64-v8a and x86_64; iOS arm64; and iOS Simulator arm64 and x86_64 where supported. An unexecuted platform shall be recorded as unverified, with its exact commands. | Yes | No | No | R0, R5 |
+| REQ-RC63 | restcore's baseline is C++17 and CMake 3.22, the existing core minimum. Static linking is the embedding path. The rest of this repository currently needs C++20 for `Logger.h`, so a build of the whole repository sets `CMAKE_CXX_STANDARD=20`. | Yes | Yes | Partial | R1: [acceptance](docs/devreq/rest-engine/r1-acceptance.md). macOS tests; Android and iOS compile only |
+| REQ-RC64 | Android: a minimal JNI wrapper with lifecycle and thread-attachment rules, documented permission and foreground-service restrictions. Foreground-service ownership stays with `SessionPreparation` and is not duplicated. | Yes | No | No | R4 |
+| REQ-RC65 | iOS: device and simulator builds, XCFramework packaging, Swift and Objective-C use, documented local-network privacy configuration, and an explicit stop or rebind path on suspension. Permanent background availability shall not be promised. | Yes | No | No | R4 |
 
 ### R.10 — Dependency trust and supply chain
 
 | ID | Requirement | Specified | Implemented | Verified | Phase / evidence |
 |---|---|---:|---:|---:|---|
-| REQ-RC70 | libhv shall be pinned to an exact reviewed commit through CMake, with upstream release, tests and examples disabled in the consumer build. Updating the pin is a reviewed change with its own diff review and full R5 rerun, never automatic. | Draft | No | No | R0 |
-| REQ-RC71 | Trust is established by evidence on the exposed surface, not by origin: authorship, human or AI, neither qualifies nor disqualifies code. R0 shall review the pinned HTTP, TLS, event-loop, WebSocket and MQTT paths, and code the engine depends on that was added after the last upstream tag shall receive specific review. | Draft | No | No | R0: review record per file |
-| REQ-RC72 | The adapter shall have continuous fuzz targets under ASan and UBSan for HTTP requests, multipart, WebSocket frames and MQTT packets. A crash blocks the phase until it is fixed or the path is removed. Upstream CI shall not be counted as this evidence. | Draft | No | No | R0: initial run, R5: sustained run |
-| REQ-RC73 | Open upstream security issues shall be tracked with a disposition per pin: #919 (undisclosed claim of high-severity memory corruption), #915 (reverse-proxy SSRF), #896 (WebSocket frame validation), #897 (MQTT packet validation) and #851 (DNS module). WebSocket and MQTT shall not ship in `production` until their validation issue is fixed upstream or mitigated with a test. A confirmed, unmitigated #919 on an exposed path is a stop condition. | Draft | No | No | R0 |
-| REQ-RC74 | The project shall be able to carry a security patch in a maintained fork or patch set, because upstream response time is not a guarantee. | Draft | No | No | R0 |
-| REQ-RC75 | Dependencies shall be limited to MIT, BSD, Apache-2.0 or BSL-1.0, with optional and transitive ones verified. OpenSSL shall be 3.0 or later, because earlier releases use a different license. Test-only tools (curl, an MQTT broker) are recorded separately and not linked. | Draft | No | No | R0: license audit |
-| REQ-RC76 | Kuaru's minimal `MBEDTLS_CONFIG_FILE` is a directory-wide crypto-only configuration without TLS modules, so `restcore` shall not rely on it. An integration that needs mbedTLS TLS beside it shall state how the two configurations coexist, and shall prove no symbol conflict. | Draft | No | No | R0, consumer adoption phase |
+| REQ-RC70 | cpp-httplib shall be pinned to an exact reviewed commit through CMake and compiled in private translation units, so that no consumer includes its header. Updating the pin is a reviewed change with its own diff review and full R5 rerun, never automatic. Upstream's pace makes this a required control, not a formality. | Yes | No | No | R0 |
+| REQ-RC71 | Trust is established by evidence on the exposed surface, not by origin: authorship, human or AI, neither qualifies nor disqualifies code. Project age is not evidence either. R0 shall review the pinned HTTP parsing, multipart, TLS and streaming paths, with specific attention to the code from 2025 onward: the mbedTLS backend, SSE client and WebSocket support. | Yes | No | No | R0: review record per file |
+| REQ-RC72 | The adapter shall have its own fuzz targets under ASan and UBSan for HTTP requests, multipart, SSE parsing and, if enabled, WebSocket frames, run against the pinned commit. A crash blocks the phase until it is fixed or the path is removed. Upstream's fuzzing is useful but shall not be counted as this evidence. | Yes | No | No | R0: initial run, R5: sustained run |
+| REQ-RC73 | Upstream's published advisories (23 on 2026-11-02) and open security issues shall be reviewed with a disposition per pin. A confirmed, unmitigated vulnerability on an exposed path is a stop condition. | Yes | No | No | R0 |
+| REQ-RC74 | The project shall be able to carry a security patch in a maintained fork or patch set, because upstream response time is not a guarantee. | Yes | No | No | R0 |
+| REQ-RC75 | Dependencies shall be limited to MIT, BSD, Apache-2.0 or BSL-1.0, with optional and transitive ones verified. OpenSSL shall be 3.0 or later, because earlier releases use a different license, and wolfSSL is excluded because it is GPL-licensed. Test-only tools such as curl are recorded separately and not linked. | Yes | No | No | R0: license audit |
+| REQ-RC76 | Kuaru's minimal `MBEDTLS_CONFIG_FILE` is a directory-wide crypto-only configuration without TLS modules, so `restcore` shall not rely on it. An integration that needs mbedTLS TLS beside it shall state how the two configurations coexist, and shall prove no symbol conflict. | Yes | No | No | R0, consumer adoption phase |
 
 ### R.11 — Verification
 
 | ID | Requirement | Specified | Implemented | Verified | Phase / evidence |
 |---|---|---:|---:|---:|---|
-| REQ-RC80 | Default CTest entries shall be deterministic and hardware-independent, using loopback sockets on ephemeral ports only. This is the single permitted exception to the "no network" core test rule, and applies only with `GIGANTE_BUILD_REST=ON`. Broker, stress and benchmark runs use separate labels outside the default run. | Draft | No | No | R1 |
-| REQ-RC81 | The stress run shall hold at least 1,500 simultaneous HTTPS connections with mixed REST and streaming traffic, long-lived connections, slow clients, abrupt disconnects and reconnection storms, long enough to detect memory growth. It reports requests per second, p50/p95/p99 latency, CPU, RSS, memory per connection, throughput, output queue sizes, connection errors and shutdown duration. No target is claimed without a recorded result, with its host. | Draft | No | No | R5 |
-| REQ-RC82 | ASan, UBSan and TSan shall cover lifecycle, streaming, cancellation and shutdown where supported. Negative tests shall cover each failure and cancellation path named in this group. | Draft | No | No | R1–R5 |
-| REQ-RC83 | Acceptance is per platform and backend actually run, and shall list failed or unexecuted criteria explicitly. A failed criterion shall not be hidden to preserve the library decision. | Draft | No | No | R5 |
+| REQ-RC80 | Default CTest entries shall be deterministic and hardware-independent, using loopback sockets on ephemeral ports only. This is the single permitted exception to the "no network" core test rule, and applies only with `GIGANTE_BUILD_REST=ON`. Stress and benchmark runs use separate labels outside the default run. | Yes | Yes | Partial | R1: [acceptance](docs/devreq/rest-engine/r1-acceptance.md). macOS tests; Android and iOS compile only |
+| REQ-RC81 | The stress run shall hold 100 simultaneous HTTPS clients with mixed REST and streaming traffic, long-lived connections, slow clients, abrupt disconnects and reconnection storms, long enough to detect memory growth. An overload run at 150 clients shall show deterministic rejection, with `health` still answering. It reports requests per second, p50/p95/p99 latency, CPU, RSS, thread count, memory per client, throughput, connection errors and shutdown duration. Runs shall include a phone-class device, where 100 threads may need a lower configured capacity. No target is claimed without a recorded result, with its host. | Yes | No | No | R5 |
+| REQ-RC82 | ASan, UBSan and TSan shall cover lifecycle, streaming, cancellation and shutdown where supported. Negative tests shall cover each failure and cancellation path named in this group. | Yes | No | No | R1–R5 |
+| REQ-RC83 | Acceptance is per platform and backend actually run, and shall list failed or unexecuted criteria explicitly. A failed criterion shall not be hidden to preserve the library decision. | Yes | No | No | R5 |
 
-### R.12 — libhv source observations
+### R.12 — cpp-httplib source observations
 
-Read from commit `060a4b6` (2026-10-19) on 2026-11-02. **Nothing was compiled or
-run**, so these are starting points for R0, not verified behavior.
+Read from commit `a18895f` (2026-10-31, version 0.64.0) on 2026-11-02. **Nothing
+was compiled or run**, so these are starting points for R0, not verified
+behavior. Line numbers refer to `httplib.h` unless another file is named.
 
 | Topic | Observed | Effect |
 |---|---|---|
-| License and age | BSD-3-Clause; first commit 2018-08-28; latest tag `v1.3.4` (2025-10-25) | License fits; transitive audit remains (RC75) |
-| Authorship | 1,296 commits, mostly the owner. 14 commits carry Copilot markers, all from 2026. Across 13 core files, 78% of lines date from 2024 or earlier, 19% from 2026 and 2% from explicitly marked Copilot commits. `AGENTS.md` was added 2026-05-21; the owner made 3 commits in 2026 before that date and 31 after. Unmarked AI assistance cannot be measured | RC71 |
-| Maintenance | One dominant maintainer; recent contributions from others are merged. No sanitizer or fuzz configuration found in CI, scripts or unit tests; the security-advisories API returned 404 | RC72, RC74 |
-| Pin | `gracefulStop` and server runtime stats date from 2026-09-17, after the latest tag | A tag alone lacks them (RC70) |
-| Default bind | `HttpServer.h:72` defaults to `0.0.0.0`; `setHost` uses `strcpy` into `char[64]` | RC18; validate length |
-| TLS verification | `openssl.c:34` and `mbedtls.c:53` default to verify-none; `openssl.c:165` sets SNI, and no hostname-verification call was found | RC16 needs adapter work or a patch |
-| TLS version | No minimum-version call found in the OpenSSL or mbedTLS backends | RC15 |
-| Apple TLS | `hssl.h:7-19` selects AppleTLS (SecureTransport) when no backend is chosen | RC14 |
-| Backpressure | 16 MiB per-connection limit; exceeding it closes the connection (`nio.c:533-536`). The 8 MiB high-water mark only warns (`nio.c:556`). 1,500 connections at the default allow about 24 GiB | RC41 |
-| Thread safety | `hio_write` and `hio_close` are documented as thread-safe (`hloop.h:454,461`) | Verify under TSan |
-| Global state | `hssl.c:3` global TLS context; async handlers use a singleton pool (`HttpHandler.cpp:276`); default logger names a `libhv` file (`hlog.c:113`); `hloop.c:320` ignores `SIGPIPE` process-wide | RC35, RC57, RC59 |
-| HTTP/2 | Streaming over h2 is stated as unsupported (`HttpResponseWriter.h:24`) | HTTP/1.1 baseline (RC40) |
-| Request size | No request-body limit found in the server headers searched; header limit 80 KiB (`http_parser.h:64`) | RC34 |
-| MQTT | Constants for 3.1, 3.1.1 and 5; default 3.1.1 (`mqtt_client.c:457`); some v5 branches exist | Conformance unverified (RC51) |
-| Upstream CI | Android arm64 and iOS device builds exist; no mbedTLS configuration found in `CI.yml` | R0 must build the matrix itself |
+| License and age | MIT; first commit 2012-09-21; 2,335 commits | License fits; transitive audit remains (RC75) |
+| Line age | 16% of lines last changed in 2022 or earlier, 5% in 2023–2024, 18% in 2025 and 59% in 2026. Blame was not filtered for reformatting or moves, so the 2026 share may be overstated | Project age is not evidence (RC71) |
+| New features | First appearance: SSE client 2025-12-15, mbedTLS backend 2026-02-01, WebSocket 2026-02-14 | Closest review (RC71) |
+| Churn and AI | Owner made 160 commits in October 2026. 39 commits carry AI markers, 35 of them from 2026, covering about 1% of lines. Unmarked AI assistance cannot be measured | RC70, RC71 |
+| Security process | CIFuzz workflow and fuzz targets; 23 published advisories; no open issues matched a security keyword search | RC72, RC73 |
+| TLS verification | Certificate and hostname verification default to on (`:3198-3199`, `:4874-4875`) | Supports RC16; test per backend |
+| TLS version | TLS 1.2 minimum set in the OpenSSL and mbedTLS backends (`:20167`, `:21379`) | Supports RC15; test per backend |
+| TLS backends | OpenSSL below 3.0 rejected at compile time (`:501`); mbedTLS 2.x–4.x (`README.md:70`); wolfSSL also available | RC14, RC75, RC76 |
+| Thread pool | Default at least 8 threads, maximum 4 times that (`:206-213`); queue unbounded unless set (`:2076`, `:12622`); a full queue closes the socket and logs an error (`:14739-14744`) | RC40, RC41 |
+| WebSocket | Thread per connection plus a heartbeat thread (`README-websocket.md:6`) | RC40 |
+| Request size | Configurable limit, default 100 MB (`:142`, `:2370`) | Supports RC34; set a lower value |
+| Bind address | Host is an explicit argument (`:2386`) | Supports RC18 |
+| Global state | `Server` constructor ignores `SIGPIPE` process-wide (`:13639`); some function-level statics exist (`:10941`, `:19616`) | RC57 |
+| Build defaults | CMake uses OpenSSL, zlib, Brotli and zstd when available (`CMakeLists.txt:4-9`) | RC14, RC45 |
+| Mobile builds | Not confirmed as covered by upstream CI | R0 must build the matrix itself |
 
-### R.13 — Open decisions
+The pin is `v0.64.0` (`24e58ce`), one commit before the commit read here. That
+commit's changes to `httplib.h` are small, so line numbers differ slightly.
 
-| # | Decision | Recommended default |
+R0 results replace these observations where they differ. See
+[feasibility](docs/devreq/rest-engine/feasibility.md).
+
+### R.13 — Decisions
+
+Decisions 1–4 were confirmed by the user on 2026-11-02. Decisions 5–7 were not
+answered individually and use the listed defaults until the user says otherwise.
+
+| # | Question | Decision |
 |---|---|---|
-| 1 | `modules/grest-cpp` is a deferred specification of the same engine and leaves the backend open | Supersede it with Group R, keeping gst-harness as a consumer |
-| 2 | `copy` and `deploy` were moved out of Python grest as a layering correction, and `startService` cannot start its own process | Keep them as REST operations on a running server, with first-process bootstrap outside (RC04, RC24, RC27, RC28) |
-| 3 | `execCmd` gives remote shell access | Development only, and only if a consumer needs it (RC30) |
-| 4 | The architecture brief names the library `restcore` with `rest_*` C symbols, while this repository requires `gigante` camelCase naming | `gigante::restcore` and `giganteRest*` (RC01, RC58) |
-| 5 | The Scope boundary in `CLAUDE.md` says RPC and Android JNI are not core infrastructure | Amend it for this explicitly requested engine only, once approved |
-| 6 | Kuaru's iOS plan has no Simulator phase, while the brief lists Simulator builds | Library build only, with no Kuaru Simulator qualification |
-| 7 | Kuaru excludes its test bridge from `store` artifacts (Kuaru REQ-L03) | No change: Kuaru store adoption is a separate consumer decision |
+| 1 | `modules/grest-cpp` is a deferred specification of the same engine | Superseded by Group R, keeping gst-harness as a consumer |
+| 2 | `copy` and `deploy` were moved out of Python grest as a layering correction, and `startService` cannot start its own process | They are REST operations on a running server, with first-process bootstrap outside (RC04, RC24, RC27, RC28) |
+| 3 | `execCmd` gives remote shell access | Development builds only, and only if a consumer needs it (RC30) |
+| 4 | The architecture brief names the library `restcore` with `rest_*` C symbols, while this repository requires `gigante` camelCase naming | `gigante::restcore`, with `Rest` class names now that decision 9 removed the C API (RC01, RC58) |
+| 5 | The Scope boundary in `CLAUDE.md` says RPC and Android JNI are not core infrastructure | Default: narrow exception for this requested engine only |
+| 6 | Kuaru's iOS plan has no Simulator phase, while the brief lists Simulator builds | Default: library build only, with no Kuaru Simulator qualification |
+| 7 | Kuaru excludes its test bridge from `store` artifacts (Kuaru REQ-L03) | Default: no change; Kuaru store adoption is a separate consumer decision |
+| 8 | Where the code lives | `src/rest` and `include/gigante` in this repository, target off by default. User decision after the architecture discussion |
+| 9 | Public API | C++ only for now (RC55). User decision |
+| 10 | Layers and classes | The smaller set in the [server class diagram](docs/devreq/rest-engine/server-class.html), keeping the `HttpTransport` interface. User decision |
+| 11 | Handler threads | Concurrent on server threads, with an optional injected dispatcher (RC35). User decision |
+| 12 | Common endpoints | Always-on base, opt-in groups, `deploy*` off at build time, `execCmd` not built. User decision |
+| 13 | Logs, artifacts and live streams | Stay in R2, with `copyList` added. User decision |
+
+### R.14 — Findings from R0 that refine this group
+
+These apply when the listed requirements are implemented, and do not change their IDs.
+
+| Requirement | Refinement |
+|---|---|
+| RC14, RC76 | Mbed TLS needs threading on, self-test off, ROM AES tables and its cipher list built before concurrent use. One process can link only one Mbed TLS build. Use 3.6.7 or later |
+| RC40, RC41 | The thread pool assigns a thread at accept, so reserved capacity protects `health` from streams and transfers, not from idle connections. Size pool and queue for bursts, keep read timeouts short, and do not expose the server to untrusted networks until this is mitigated |
+| RC41 | A stalled TLS client can hold a thread for several times the write timeout. Choose the write timeout with this in mind |
+| RC44 | The transport shall set status 206 for ranged provider responses |
+| RC45 | Compile only `httplib.h` from upstream, without running its CMake |
+| RC48 | The client shall protect a client-only process from `SIGPIPE`, and shall enforce its own reconnect attempts and minimum interval |
+| RC72 | Fuzzing did not run in R0. Its first run, and the sustained run, belong to R5 |
 
 ## Repository governance requirements
 
@@ -424,13 +463,13 @@ contract.
 | G3 | Group private implementation by DSP, logger, metrics and platform while preserving the flat public header API and existing targets | GOV-05, GOV-10 | Strict Linux matrices, Android target builds, full CTest, Kuaru consumer build, path audit and `git diff --check` | Complete 2026-09-29; no public include, namespace, target or behavior change |
 | P13A | Specify render capability (Group Q); anticipated-reuse exception to the default scope bar, approved explicitly, no Kuaru/AHIO consumer | Q01–Q04 | Requirements review | Specified 2026-10-16 |
 | P13B | Generic capability-detection contract plus render capability: `RenderCapability` enum, `HostFacts::renderCapabilities`, POSIX (Wayland/X11 socket presence) and Apple (`CGSessionCopyCurrentDictionary`, iOS unconditional) probes | Q01–Q04 | `gigantePlatformTests` build/run, standalone real-session probe run, `git diff --check` | Complete 2026-10-16 on macOS: `gigantePlatformTests` passes (including new duplicate-free/audio-always/name-stability/empty-default cases), and a standalone probe on a real interactive console session reported `audio video` both detected. Linux build/probe and Android/iOS device verification not performed locally |
-| R0 | libhv feasibility: pin, security review, fuzz start, TLS and platform builds, backpressure and lifetime probes; no public API | RC14–15, RC40–41, RC43, RC45, RC48, RC57, RC59, RC62, RC70–76 | Written go/no-go with reproducible evidence per risk | Draft; not started |
-| R1 | Core server and client, security profiles, HTTPS, routing, errors, OpenAPI, common status routes, service lifecycle, C ABI | RC01–04, RC10–24, RC31–37, RC40, RC48–49, RC55–59, RC63, RC80 | Loopback and negative tests, sanitizers, header isolation, libcurl interoperability | Draft; not started |
-| R2 | Streaming, delivery policies, binary transfer, `copy`, diagnostics | RC05–06, RC25–27, RC41–44 | Slow-client and bounded-memory tests, large-file and cancellation tests | Draft; not started |
-| R3 | MQTT client | RC50–51 | Real-broker behavior record | Draft; not started |
-| R4 | Android JNI and iOS integration | RC64–65 | Device builds and lifecycle evidence, recorded per device | Draft; not started |
-| R5 | Stress, sanitizer, fuzz and platform validation | RC62, RC72, RC81–83 | Benchmarks with host details, per-platform acceptance list | Draft; not started |
-| R6 | `deploy` and `execCmd`, only if separately approved | RC28–30 | Dedicated security review, signature tests, artifact audit | Draft; not started |
+| R0 | cpp-httplib feasibility: pin, security review, fuzz start, TLS and platform builds, capacity, slow-client and lifetime probes; no public API | RC14–15, RC40–41, RC43, RC45, RC48, RC57, RC59, RC62, RC70–76 | Written go/no-go with reproducible evidence per risk | Closed 2026-11-02 with partial coverage, decision go: [feasibility](docs/devreq/rest-engine/feasibility.md). macOS only; Android, iOS, phone capacity and fuzzing not completed |
+| R1 | Core server and client, security profiles, HTTPS, routing, errors, common status routes, service lifecycle, C++ API | RC01–04, RC10–18, RC20–24, RC31, RC33–35, RC37, RC40, RC48–49, RC55–59, RC63, RC80 | Android and iOS builds first; loopback and negative tests, sanitizers, header isolation, curl interoperability | Complete 2026-11-02 on macOS: [acceptance](docs/devreq/rest-engine/r1-acceptance.md). Android and iOS compile only |
+| R2 | Streaming, delivery policies, binary transfer, `copy*` including `copyList`, diagnostics | RC05–06, RC25–27, RC41–44 | Slow-client and bounded-memory tests, large-file and cancellation tests | Specified 2026-11-02; not started |
+| R3 | ~~MQTT client~~ | RC50–51 | None | Removed 2026-11-02 by user decision |
+| R4 | Android JNI and iOS integration | RC64–65 | Device builds and lifecycle evidence, recorded per device | Specified 2026-11-02; not started |
+| R5 | Stress, sanitizer, fuzz and platform validation | RC62, RC72, RC81–83 | Benchmarks with host details, per-platform acceptance list | Specified 2026-11-02; not started |
+| R6 | `deploy` and `execCmd`, only if separately approved | RC28–30 | Dedicated security review, signature tests, artifact audit | Specified 2026-11-02; not started |
 
 The vocoder and every DSP optimization/redesign require a later explicit phase
 and `go`; they are not implied by completing P8F–P8J.
