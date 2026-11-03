@@ -1,6 +1,11 @@
 #include "RestTestSupport.h"
 
+#include <gigante/RestResourceStore.h>
+
 #include <atomic>
+#include <chrono>
+#include <cstring>
+#include <map>
 #include <condition_variable>
 #include <deque>
 #include <iostream>
@@ -159,7 +164,7 @@ void commonEndpoints() {
     check(result.status == 200 && contains(result.body, "uptimeMilliseconds") && contains(result.body, "instanceId"), "heartbeat", result.body);
     result = client.status();
     check(result.status == 200 && contains(result.body, "\"state\":\"running\"") && contains(result.body, "\"requested\":{\"scheme\":\"automatic\"") && contains(result.body, "\"effective\":{\"scheme\":\"http\"") && contains(result.body, "\"detail\":{\"mode\":\"test\"}"), "status", result.body);
-    result = client.getBuildVersion();
+    result = client.getIdentity();
     check(result.status == 200 && contains(result.body, "build-123"), "buildVersion", result.body);
     result = client.getCapabilities();
     check(result.status == 200 && contains(result.body, "\"hostFacts\":{\"cores\":8}") && !contains(result.body, "services"), "capabilities", result.body);
@@ -298,6 +303,85 @@ void multipleInstances() {
     check(clientFirst.call(RestMethod::get, "/api/v1/name").status == 0, "firstStopped");
 }
 
+// A minimal in-memory store for curl to list, download and upload through.
+class ServeStore final : public RestResourceStore {
+public:
+    ServeStore() {
+        std::string sample(100 * 1024, '\0');
+        for (std::size_t index = 0; index < sample.size(); ++index) {
+            sample[index] = static_cast<char>(index * 31);
+        }
+        resources["sample.bin"] = sample;
+    }
+    std::vector<RestResourceInfo> list() override {
+        std::lock_guard<std::mutex> lock(mutex);
+        std::vector<RestResourceInfo> result;
+        for (const auto& resource : resources) {
+            result.push_back(info(resource.first, resource.second.size()));
+        }
+        return result;
+    }
+    std::optional<RestResourceInfo> describe(const std::string& id) override {
+        std::lock_guard<std::mutex> lock(mutex);
+        const auto entry = resources.find(id);
+        return entry == resources.end() ? std::nullopt : std::optional<RestResourceInfo>(info(id, entry->second.size()));
+    }
+    std::unique_ptr<RestUploadSink> beginUpload(const std::string& id, std::uint64_t) override {
+        class Sink final : public RestUploadSink {
+        public:
+            Sink(ServeStore& owner, std::string resource) : store(owner), id(std::move(resource)) {}
+            bool write(const char* data, std::size_t size) override {
+                staged.append(data, size);
+                return true;
+            }
+            bool commit() override {
+                std::lock_guard<std::mutex> lock(store.mutex);
+                store.resources[id] = staged;
+                return true;
+            }
+            void discard() override {}
+
+        private:
+            ServeStore& store;
+            std::string id;
+            std::string staged;
+        };
+        return std::make_unique<Sink>(*this, id);
+    }
+    std::unique_ptr<RestDownloadSource> openRead(const std::string& id) override {
+        class Source final : public RestDownloadSource {
+        public:
+            explicit Source(std::string bytes) : data(std::move(bytes)) {}
+            std::uint64_t size() const override { return data.size(); }
+            bool read(std::uint64_t offset, char* buffer, std::size_t length) override {
+                std::memcpy(buffer, data.data() + offset, length);
+                return offset + length <= data.size();
+            }
+
+        private:
+            std::string data;
+        };
+        std::lock_guard<std::mutex> lock(mutex);
+        const auto entry = resources.find(id);
+        return entry == resources.end() ? nullptr : std::make_unique<Source>(entry->second);
+    }
+    std::uint64_t freeBytes() override {
+        return 1 << 30;
+    }
+
+private:
+    static RestResourceInfo info(const std::string& id, std::size_t size) {
+        RestResourceInfo result;
+        result.id = id;
+        result.size = size;
+        result.writable = true;
+        return result;
+    }
+
+    std::mutex mutex;
+    std::map<std::string, std::string> resources;
+};
+
 int serve(const std::string& certs, bool useTls) {
     RestServerConfig config = developmentServer();
     config.buildIdentity = "interop";
@@ -311,14 +395,31 @@ int serve(const std::string& certs, bool useTls) {
         return RestResponse::json("{\"id\":\"" + request.pathParameter("id") + "\"}");
     });
     server.POST("/api/v1/echo", [](const RestRequest& request) { return RestResponse::json(request.body); });
+    RestStreamDescriptor ticks;
+    ticks.id = "ticks";
+    ticks.heartbeatMilliseconds = 200;
+    const std::shared_ptr<RestStream> tickStream = server.declareStream(ticks);
+    RestStreamDescriptor quiet = ticks;
+    quiet.id = "quiet";
+    server.declareStream(quiet);
+    server.setResourceStore(std::make_shared<ServeStore>());
     const RestStartResult started = server.start();
     if (!started.started) {
         std::cerr << started.cause << "\n";
         return 1;
     }
+    std::atomic<bool> publishing{true};
+    std::thread publisher([&] {
+        for (int tick = 1; publishing.load(); ++tick) {
+            tickStream->tryPublish("tick " + std::to_string(tick), "tick");
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+    });
     std::cout << "PORT " << started.port << std::endl;
     std::string line;
     std::getline(std::cin, line);
+    publishing.store(false);
+    publisher.join();
     return server.stop() ? 0 : 1;
 }
 

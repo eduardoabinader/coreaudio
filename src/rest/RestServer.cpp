@@ -1,7 +1,10 @@
 #include "gigante/RestServer.h"
 
+#include "CapacityGate.h"
 #include "CommonEndpoints.h"
+#include "CopyService.h"
 #include "CppHttplibTransport.h"
+#include "DiagnosticsEndpoints.h"
 #include "HandlerDispatcher.h"
 #include "MiddlewareChain.h"
 #include "RestJson.h"
@@ -9,11 +12,14 @@
 #include "Router.h"
 #include "SecurityPolicy.h"
 #include "ServiceRegistry.h"
+#include "StreamHub.h"
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstdio>
 #include <exception>
+#include <limits>
 #include <mutex>
 #include <random>
 #include <string>
@@ -113,6 +119,7 @@ const char* errorCodeFor(int status) {
         case 404: return "notFound";
         case 405: return "methodNotAllowed";
         case 408: return "requestTimeout";
+        case 411: return "lengthRequired";
         case 413: return "bodyTooLarge";
         case 414: return "uriTooLong";
         case 431: return "headersTooLarge";
@@ -147,6 +154,8 @@ public:
           }),
           common(makeSources()),
           gate(std::make_shared<DispatchGate>()),
+          capacity(config.limits.maxStreams, config.limits.maxTransfers, metrics),
+          hub(std::make_shared<StreamHub>(metrics)),
           instanceId(randomInstanceId()),
           startedAt(std::chrono::steady_clock::now()) {
         router.setInvalidParameterResponder([this](const std::string&, const TransportRequest& request) {
@@ -165,6 +174,7 @@ public:
         stopWithDeadline(10000);
         gate->close();
         gate->waitUntilIdle(std::chrono::steady_clock::time_point::max());
+        hub->shutdown();
     }
 
     RestRouteResult add(RestMethod method, const std::string& pattern, RestHandler handler, const RestRouteOptions& options) {
@@ -196,7 +206,17 @@ public:
         if (!decision.warning.empty()) {
             log(RestLogLevel::warn, "restServerPlaintext", decision.warning);
         }
+        const bool streamsEnabled = !hub->descriptors().empty();
+        const std::size_t neededThreads = config.limits.reservedThreads + (streamsEnabled ? config.limits.maxStreams : 0) + (store ? config.limits.maxTransfers : 0);
+        if (neededThreads > config.limits.maxThreads) {
+            result.cause = "the stream and transfer caps plus reservedThreads (" + std::to_string(neededThreads) + ") exceed maxThreads (" + std::to_string(config.limits.maxThreads) + ")";
+            log(RestLogLevel::error, "restServerStartRefused", result.cause);
+            return result;
+        }
+        const std::size_t transferLimit = static_cast<std::size_t>(std::min<std::uint64_t>(config.limits.maxTransferBytes, std::numeric_limits<std::size_t>::max()));
+        const std::size_t transportBodyLimit = store ? std::max(config.limits.maxBodyBytes, transferLimit) : config.limits.maxBodyBytes;
         if (!routesRegistered) {
+            middleware.setTransportBodyLimit(transportBodyLimit);
             registerEngineRoutes();
             routesRegistered = true;
         }
@@ -210,13 +230,18 @@ public:
         transportConfig.baseThreads = config.limits.baseThreads;
         transportConfig.maxThreads = config.limits.maxThreads;
         transportConfig.maxQueuedConnections = config.limits.maxQueuedConnections;
-        transportConfig.maxPayloadBytes = config.limits.maxBodyBytes;
+        transportConfig.maxPayloadBytes = transportBodyLimit;
         transportConfig.readTimeoutMilliseconds = config.limits.readTimeoutMilliseconds;
         transportConfig.writeTimeoutMilliseconds = config.limits.writeTimeoutMilliseconds;
         transportConfig.keepAliveTimeoutMilliseconds = config.limits.keepAliveTimeoutMilliseconds;
         transportConfig.keepAliveMaxCount = config.limits.keepAliveMaxCount;
         gate->open();
         services.open();
+        capacity.acceptNewLeases();
+        hub->reopen();
+        if (copy) {
+            copy->reopen();
+        }
         const TransportStartResult started = transport.start(transportConfig);
         if (!started.started) {
             services.close(std::chrono::steady_clock::time_point::max());
@@ -243,14 +268,22 @@ public:
         }
         serverState.store(RestServerState::draining);
         gate->close();
+        capacity.refuseNewLeases();
+        hub->cancelAll();
         const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeoutMilliseconds);
         std::string cause;
         if (!transport.stop(timeoutMilliseconds)) {
             cause = "a handler or connection is still running";
-        } else if (!services.close(deadline)) {
-            cause = "a service callback is still running";
-        } else if (!gate->waitUntilIdle(deadline)) {
-            cause = "a handler on the injected dispatcher is still running";
+        } else {
+            // No upload can be running now, so every uncommitted transfer is discarded.
+            if (copy) {
+                copy->close();
+            }
+            if (!services.close(deadline)) {
+                cause = "a service callback is still running";
+            } else if (!gate->waitUntilIdle(deadline)) {
+                cause = "a handler on the injected dispatcher is still running";
+            }
         }
         {
             std::lock_guard<std::mutex> causeLock(causeMutex);
@@ -290,21 +323,49 @@ public:
                ",\"effective\":{\"scheme\":" + jsonString(effectiveScheme) + ",\"host\":" + jsonString(config.host) + ",\"port\":" + std::to_string(port.load()) + "}" +
                ",\"tlsBackend\":" + jsonString(transport.tlsBackend()) +
                ",\"limits\":{\"maxThreads\":" + std::to_string(config.limits.maxThreads) + ",\"maxQueuedConnections\":" + std::to_string(config.limits.maxQueuedConnections) + ",\"maxBodyBytes\":" + std::to_string(config.limits.maxBodyBytes) + "}" +
-               ",\"counters\":{\"requests\":" + std::to_string(counters.requests) + ",\"authenticationFailures\":" + std::to_string(counters.authenticationFailures) + ",\"dispatcherFull\":" + std::to_string(counters.dispatcherFull) + ",\"dispatcherDeadlines\":" + std::to_string(counters.dispatcherDeadlines) + ",\"handlerExceptions\":" + std::to_string(counters.handlerExceptions) + ",\"resourceExhaustion\":" + std::to_string(counters.resourceExhaustion) + ",\"transportErrors\":" + std::to_string(counters.transportErrors) + "}" +
+               ",\"counters\":{\"requests\":" + std::to_string(counters.requests) + ",\"authenticationFailures\":" + std::to_string(counters.authenticationFailures) + ",\"dispatcherFull\":" + std::to_string(counters.dispatcherFull) + ",\"dispatcherDeadlines\":" + std::to_string(counters.dispatcherDeadlines) + ",\"handlerExceptions\":" + std::to_string(counters.handlerExceptions) + ",\"resourceExhaustion\":" + std::to_string(counters.resourceExhaustion) + ",\"transportErrors\":" + std::to_string(counters.transportErrors) +
+               ",\"rejectedStreams\":" + std::to_string(counters.rejectedStreams) + ",\"rejectedTransfers\":" + std::to_string(counters.rejectedTransfers) +
+               ",\"droppedChunks\":" + std::to_string(counters.droppedChunks) + ",\"refusedChunks\":" + std::to_string(counters.refusedChunks) +
+               ",\"evictedSubscribers\":" + std::to_string(counters.evictedSubscribers) + "}" +
+               ",\"streams\":{\"declared\":" + std::to_string(hub->descriptors().size()) + ",\"subscribers\":" + std::to_string(capacity.activeStreams()) + ",\"maxStreams\":" + std::to_string(config.limits.maxStreams) + "}" +
+               ",\"transfers\":{\"active\":" + std::to_string(capacity.activeTransfers()) + ",\"pending\":" + std::to_string(copy ? copy->pendingTransfers() : 0) + ",\"maxTransfers\":" + std::to_string(config.limits.maxTransfers) + "}" +
                ",\"services\":" + services.statusJson() +
                ",\"detail\":" + safeProviderValue(statusDetailProvider) + "}";
     }
 
     std::string capabilitiesJson() {
-        std::string routes = "[\"health\",\"heartbeat\",\"status\",\"getBuildVersion\",\"getCapabilities\"";
+        std::string routes = "[\"health\",\"heartbeat\",\"status\",\"getIdentity\",\"getCapabilities\"";
         if (dependencyReportProvider) {
             routes += ",\"checkDeps\"";
         }
         if (!services.isEmpty() || remoteStopEnabled) {
             routes += ",\"services\"";
         }
-        return "{\"apiVersion\":\"core/v1\",\"routes\":" + routes + "],\"streamLanes\":[],\"tlsBackend\":" + jsonString(transport.tlsBackend()) +
-               ",\"limits\":{\"maxThreads\":" + std::to_string(config.limits.maxThreads) + ",\"maxBodyBytes\":" + std::to_string(config.limits.maxBodyBytes) + "}" +
+        bool sseLane = false;
+        bool binaryLane = false;
+        for (const RestStreamDescriptor& descriptor : hub->descriptors()) {
+            (descriptor.lane == RestStreamLane::sse ? sseLane : binaryLane) = true;
+        }
+        if (sseLane || binaryLane) {
+            routes += ",\"streams\"";
+        }
+        if (store) {
+            routes += ",\"copyList\",\"copyCreate\",\"copyUpload\",\"copyDownload\",\"copyStatus\",\"copyCancel\"";
+        }
+        for (const std::string& name : diagnosticsRouteNames()) {
+            routes += ",\"" + name + "\"";
+        }
+        std::string lanes = "[";
+        if (sseLane) {
+            lanes += "\"sse\"";
+        }
+        if (binaryLane) {
+            lanes += std::string(sseLane ? "," : "") + "\"binary\"";
+        }
+        return "{\"apiVersion\":\"core/v1\",\"routes\":" + routes + "],\"streamLanes\":" + lanes + "],\"tlsBackend\":" + jsonString(transport.tlsBackend()) +
+               ",\"limits\":{\"maxThreads\":" + std::to_string(config.limits.maxThreads) + ",\"maxBodyBytes\":" + std::to_string(config.limits.maxBodyBytes) +
+               ",\"maxStreams\":" + std::to_string(config.limits.maxStreams) + ",\"maxTransfers\":" + std::to_string(config.limits.maxTransfers) +
+               ",\"maxTransferBytes\":" + std::to_string(config.limits.maxTransferBytes) + "}" +
                ",\"hostFacts\":" + safeProviderValue(hostFactsProvider) + "}";
     }
 
@@ -316,6 +377,12 @@ public:
     ServiceRegistry services;
     CommonEndpoints common;
     std::shared_ptr<DispatchGate> gate;
+    CapacityGate capacity;
+    std::shared_ptr<StreamHub> hub;
+    std::shared_ptr<RestResourceStore> store;
+    std::unique_ptr<CopyService> copy;
+    DiagnosticsSources diagnosticsSources;
+    std::unique_ptr<DiagnosticsEndpoints> diagnostics;
     std::shared_ptr<RestDispatcher> dispatcher;
     RestAuthenticator authenticator;
     std::function<std::string()> statusDetailProvider;
@@ -326,6 +393,8 @@ public:
     std::atomic<int> port{0};
     mutable std::mutex causeMutex;
     std::string stopCause;
+    std::mutex lifecycleMutex;
+    bool routesRegistered = false;
 
 private:
     CommonEndpointSources makeSources() {
@@ -435,11 +504,31 @@ private:
             return errorResponse(status, errorCodeFor(status), status >= 500 ? "The server could not complete the request." : "The request was rejected.", false, request);
         });
         common.registerRoutes(router);
+        RouteInfo protectedRoute;
+        protectedRoute.authRequired = true;
+        registerStreamRoutes(protectedRoute);
+        const auto errorBuilder = [this](int status, const std::string& code, const std::string& message, bool retryable, const TransportRequest& request) {
+            return errorResponse(status, code, message, retryable, request);
+        };
+        const auto finisher = [this](TransportResponse& response, const TransportRequest& request) {
+            addStandardHeaders(response, request, requestIdFor(request));
+        };
+        const auto serviceLog = [this](RestLogLevel level, const std::string& event, const std::string& detail) { log(level, event, detail); };
+        if (store) {
+            CopyServiceConfig copyConfig;
+            copyConfig.maxTransferBytes = config.limits.maxTransferBytes;
+            copyConfig.uploadBodyDeadlineMilliseconds = config.limits.uploadBodyDeadlineMilliseconds;
+            copyConfig.resumeWindowMilliseconds = config.limits.transferResumeWindowMilliseconds;
+            copyConfig.maxDownloadBytesPerSecond = config.limits.maxDownloadBytesPerSecond;
+            copyConfig.maxPendingTransfers = std::max<std::size_t>(1, config.limits.maxTransfers) * 4;
+            copy = std::make_unique<CopyService>(store, capacity, copyConfig, errorBuilder, finisher, serviceLog);
+            copy->registerRoutes(router);
+        }
+        diagnostics = std::make_unique<DiagnosticsEndpoints>(diagnosticsSources, errorBuilder, finisher, serviceLog);
+        diagnostics->registerRoutes(router);
         if (services.isEmpty() && !remoteStopEnabled) {
             return;
         }
-        RouteInfo protectedRoute;
-        protectedRoute.authRequired = true;
         router.addCommon(HttpMethod::get, "/core/v1/services", [this](const TransportRequest& request) {
             const std::string requestId = requestIdFor(request);
             TransportResponse response;
@@ -455,6 +544,68 @@ private:
         addAction("start", ServiceAction::start);
         addAction("stop", ServiceAction::stop);
         addAction("restart", ServiceAction::restart);
+    }
+
+    std::vector<std::string> diagnosticsRouteNames() const {
+        return diagnostics ? diagnostics->routeNames() : std::vector<std::string>();
+    }
+
+    void registerStreamRoutes(const RouteInfo& protectedRoute) {
+        if (hub->descriptors().empty()) {
+            return;
+        }
+        RouteInfo readRoute = protectedRoute;
+        readRoute.idempotent = true;
+        router.addCommon(HttpMethod::get, "/core/v1/streams", [this](const TransportRequest& request) {
+            std::string body = "{\"streams\":[";
+            bool first = true;
+            for (const RestStreamDescriptor& descriptor : hub->descriptors()) {
+                const char* policy = descriptor.policy == RestDeliveryPolicy::reliable ? "reliable" : (descriptor.policy == RestDeliveryPolicy::realtime ? "realtime" : "broadcast");
+                body += std::string(first ? "" : ",") + "{\"id\":" + jsonString(descriptor.id) +
+                        ",\"lane\":" + jsonString(descriptor.lane == RestStreamLane::sse ? "sse" : "binary") +
+                        ",\"contentType\":" + jsonString(descriptor.lane == RestStreamLane::sse ? "text/event-stream" : (descriptor.contentType.empty() ? "application/octet-stream" : descriptor.contentType)) +
+                        ",\"format\":" + jsonString(descriptor.format) + ",\"formatVersion\":" + jsonString(descriptor.formatVersion) +
+                        ",\"policy\":" + jsonString(policy) + ",\"maxQueuedBytesPerSubscriber\":" + std::to_string(descriptor.maxQueuedBytesPerSubscriber) +
+                        ",\"heartbeatMilliseconds\":" + std::to_string(descriptor.lane == RestStreamLane::sse ? descriptor.heartbeatMilliseconds : 0) + "}";
+                first = false;
+            }
+            TransportResponse response;
+            response.body = body + "]}";
+            addStandardHeaders(response, request, requestIdFor(request));
+            return response;
+        }, readRoute);
+        router.addCommon(HttpMethod::get, "/core/v1/streams/{id}/live", [this](const TransportRequest& request) { return subscribe(request); }, readRoute);
+    }
+
+    // Cheapest checks first, so a refused subscriber never holds capacity.
+    TransportResponse subscribe(const TransportRequest& request) {
+        const std::string id = request.pathParameters.at("id");
+        switch (hub->check(id)) {
+            case SubscribeResult::unknownStream:
+                return errorResponse(404, "unknownStream", "No stream with that ID is declared.", false, request);
+            case SubscribeResult::streamEnded:
+                return errorResponse(410, "streamEnded", "The producer has closed this stream.", false, request);
+            case SubscribeResult::stopping:
+                return errorResponse(503, "serverStopping", "The server is stopping.", true, request);
+            case SubscribeResult::subscribed:
+                break;
+        }
+        std::optional<CapacityLease> lease = capacity.tryAcquireStream();
+        if (!lease) {
+            return errorResponse(503, "streamCapReached", "Too many streams are open. Try again later.", true, request);
+        }
+        std::string lastEventId = requestHeader(request, "Last-Event-ID").value_or("");
+        if (lastEventId.size() > 32) {
+            lastEventId = "invalid";
+        }
+        const std::shared_ptr<StreamSession> session = hub->subscribe(id, std::move(*lease), lastEventId);
+        if (!session) {
+            return errorResponse(503, "serverStopping", "The server is stopping.", true, request);
+        }
+        TransportResponse response = hub->makeResponse(id, session);
+        response.release = [keep = hub, release = std::move(response.release)](bool success) { release(success); };
+        addStandardHeaders(response, request, requestIdFor(request));
+        return response;
     }
 
     TransportResponse serviceAction(const TransportRequest& request, ServiceAction action) {
@@ -498,12 +649,10 @@ private:
     std::chrono::steady_clock::time_point startedAt;
     std::string effectiveScheme;
     std::atomic<std::uint64_t> nextRequestNumber{1};
-    std::mutex lifecycleMutex;
     std::mutex stopThreadMutex;
     std::thread stopThread;
     std::atomic<bool> stopThreadStarted{false};
     bool destroying = false;
-    bool routesRegistered = false;
 };
 
 RestServer::RestServer(RestServerConfig config) : implementation(std::make_unique<Implementation>(std::move(config))) {}
@@ -595,6 +744,43 @@ std::string RestServer::lastStopCause() const {
     return implementation->stopCause;
 }
 
+std::shared_ptr<RestStream> RestServer::declareStream(RestStreamDescriptor descriptor) {
+    std::lock_guard<std::mutex> lock(implementation->lifecycleMutex);
+    if (implementation->routesRegistered || !implementation->hub->declare(descriptor)) {
+        return nullptr;
+    }
+    return std::make_shared<RestStream>(implementation->hub, descriptor.id);
+}
+
+void RestServer::setResourceStore(std::shared_ptr<RestResourceStore> store) {
+    std::lock_guard<std::mutex> lock(implementation->lifecycleMutex);
+    if (!implementation->routesRegistered) {
+        implementation->store = std::move(store);
+    }
+}
+
+void RestServer::enableLogQuery(std::vector<std::string> roots, RestLogQueryLimits limits) {
+    std::lock_guard<std::mutex> lock(implementation->lifecycleMutex);
+    if (!implementation->routesRegistered) {
+        implementation->diagnosticsSources.logRoots = std::move(roots);
+        implementation->diagnosticsSources.limits = limits;
+    }
+}
+
+void RestServer::setCommandStatusProvider(std::function<std::vector<RestCommandRecord>()> provider) {
+    std::lock_guard<std::mutex> lock(implementation->lifecycleMutex);
+    if (!implementation->routesRegistered) {
+        implementation->diagnosticsSources.commandStatus = std::move(provider);
+    }
+}
+
+void RestServer::setLogMarkerWriter(std::function<bool(const RestLogMarker&)> writer) {
+    std::lock_guard<std::mutex> lock(implementation->lifecycleMutex);
+    if (!implementation->routesRegistered) {
+        implementation->diagnosticsSources.markerWriter = std::move(writer);
+    }
+}
+
 RestServerCounters RestServer::counters() const {
     const RestMetricsSnapshot snapshot = implementation->metrics.snapshot();
     RestServerCounters result;
@@ -605,6 +791,11 @@ RestServerCounters RestServer::counters() const {
     result.handlerExceptions = snapshot.handlerExceptions;
     result.resourceExhaustion = snapshot.resourceExhaustion;
     result.transportErrors = snapshot.transportErrors;
+    result.rejectedStreams = snapshot.rejectedStreams;
+    result.rejectedTransfers = snapshot.rejectedTransfers;
+    result.droppedChunks = snapshot.droppedChunks;
+    result.refusedChunks = snapshot.refusedChunks;
+    result.evictedSubscribers = snapshot.evictedSubscribers;
     return result;
 }
 

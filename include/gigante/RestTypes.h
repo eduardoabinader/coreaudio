@@ -6,6 +6,7 @@
 #include <map>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace gigante {
 
@@ -33,6 +34,16 @@ struct RestServerLimits {
     int keepAliveTimeoutMilliseconds = 1000;
     std::size_t keepAliveMaxCount = 100;
     int dispatcherDeadlineMilliseconds = 5000;
+
+    // Each open stream or transfer holds a server thread. start() refuses limits where
+    // the enabled caps plus reservedThreads exceed maxThreads.
+    std::size_t maxStreams = 32;
+    std::size_t maxTransfers = 16;
+    std::size_t reservedThreads = 8;
+    std::uint64_t maxTransferBytes = 4ULL * 1024 * 1024 * 1024;
+    int uploadBodyDeadlineMilliseconds = 600000;
+    int transferResumeWindowMilliseconds = 60000;
+    std::uint64_t maxDownloadBytesPerSecond = 0;
 };
 
 struct RestServerConfig {
@@ -45,6 +56,8 @@ struct RestServerConfig {
     bool allowNonLoopbackPlaintext = false;
     RestTlsFiles tls;
     RestServerLimits limits;
+    // Fixed when the project's binary is built; getIdentity and heartbeat report it.
+    // The engine never builds anything at run time.
     std::string buildIdentity;
     std::string corsAllowOrigin;
     RestLogSink log;
@@ -149,7 +162,92 @@ struct RestServerCounters {
     std::uint64_t handlerExceptions = 0;
     std::uint64_t resourceExhaustion = 0;
     std::uint64_t transportErrors = 0;
+    std::uint64_t rejectedStreams = 0;
+    std::uint64_t rejectedTransfers = 0;
+    std::uint64_t droppedChunks = 0;
+    std::uint64_t refusedChunks = 0;
+    std::uint64_t evictedSubscribers = 0;
 };
+
+enum class RestDeliveryPolicy { reliable, realtime, broadcast };
+enum class RestStreamLane { sse, binary };
+
+// reliable never drops silently, realtime drops the oldest data and counts it, and
+// broadcast evicts only a slow subscriber. The SSE lane assigns increasing event IDs;
+// a reconnect sends a gap event with the number missed, and nothing is replayed.
+struct RestStreamDescriptor {
+    std::string id;
+    RestStreamLane lane = RestStreamLane::sse;
+    std::string contentType;
+    std::string format;
+    std::string formatVersion;
+    RestDeliveryPolicy policy = RestDeliveryPolicy::realtime;
+    std::size_t maxQueuedBytesPerSubscriber = 256 * 1024;
+    int heartbeatMilliseconds = 15000;
+};
+
+enum class RestPublishStatus { delivered, refused, closed, invalidEvent };
+
+struct RestPublishResult {
+    RestPublishStatus status = RestPublishStatus::delivered;
+    std::size_t subscribers = 0;
+    std::size_t dropped = 0;
+    std::size_t evicted = 0;
+    std::uint64_t eventId = 0;
+};
+
+struct RestResourceInfo {
+    std::string id;
+    std::uint64_t size = 0;
+    std::string sha256;
+    std::string contentType = "application/octet-stream";
+    bool readable = true;
+    bool writable = false;
+};
+
+struct RestLogQueryLimits {
+    std::size_t maxLines = 1000;
+    std::size_t maxBytes = 1024 * 1024;
+    std::size_t maxFiles = 64;
+    int maxDepth = 4;
+};
+
+struct RestCommandRecord {
+    std::string name;
+    bool alive = false;
+    std::int64_t processId = -1;
+    std::optional<int> exitCode;
+    std::string detail;
+};
+
+struct RestLogMarker {
+    std::string command;
+    std::string origin;
+    std::string event;
+    std::string text;
+};
+
+struct RestStreamEvent {
+    std::string event;
+    std::string data;
+    std::string id;
+};
+
+enum class RestSubscriptionEnd { canceled, streamEnded, attemptsExhausted, rejected, refusedByPolicy };
+
+struct RestSubscriptionOptions {
+    int minimumReconnectMilliseconds = 1000;
+    int maximumAttempts = 5;
+    int idleTimeoutMilliseconds = 30000;
+    std::string lastEventId;
+    bool binary = false;
+    std::map<std::string, std::string> headers;
+};
+
+// Supplies exactly `length` bytes starting at `offset`; false stops the upload.
+using RestUploadSource = std::function<bool(std::uint64_t offset, char* buffer, std::size_t length)>;
+// Receives downloaded bytes in order; false stops the download.
+using RestDownloadSink = std::function<bool(const char* data, std::size_t size)>;
 
 enum class RestClientError { none, refusedByPolicy, connection, tlsVerification, hostnameVerification, tlsHandshake, canceled, deadline, other };
 
@@ -166,6 +264,8 @@ struct RestResult {
     std::string body;
     std::string errorText;
     int attempts = 0;
+    std::uint64_t bytesTransferred = 0;
+    std::string sha256;
 };
 
 } // namespace gigante

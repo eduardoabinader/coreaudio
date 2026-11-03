@@ -1,5 +1,6 @@
 #include "MiddlewareChain.h"
 
+#include <algorithm>
 #include <cctype>
 #include <cstdlib>
 #include <exception>
@@ -35,6 +36,18 @@ bool isSafeIdentifier(const std::string& value) {
 
 } // namespace
 
+std::optional<std::string> requestHeader(const TransportRequest& request, const std::string& name) {
+    for (const auto& entry : request.headers) {
+        if (entry.first.size() == name.size() &&
+            std::equal(entry.first.begin(), entry.first.end(), name.begin(), [](char left, char right) {
+                return std::tolower(static_cast<unsigned char>(left)) == std::tolower(static_cast<unsigned char>(right));
+            })) {
+            return entry.second;
+        }
+    }
+    return std::nullopt;
+}
+
 std::string safeRequestHeaderValue(const TransportRequest& request, const std::string& name) {
     const auto entry = request.headers.find(name);
     return entry != request.headers.end() && isSafeIdentifier(entry->second) ? entry->second : std::string();
@@ -68,6 +81,10 @@ void MiddlewareChain::setDefaultBodyLimit(std::size_t bytes) {
     defaultBodyLimit = bytes;
 }
 
+void MiddlewareChain::setTransportBodyLimit(std::size_t bytes) {
+    transportBodyLimit = bytes;
+}
+
 std::optional<TransportResponse> MiddlewareChain::evaluate(const TransportRequest& request) const {
     if (!corsAllowOrigin.empty() && request.method == HttpMethod::options && request.headers.count("Access-Control-Request-Method") != 0) {
         TransportResponse preflight;
@@ -94,6 +111,9 @@ std::optional<TransportResponse> MiddlewareChain::evaluate(const TransportReques
         if (declared > limit) {
             return errorBuilder(413, "bodyTooLarge", "The request body is over this route's limit.", false, request);
         }
+    }
+    if (limit != 0 && limit < transportBodyLimit && length == request.headers.end() && request.headers.count("Transfer-Encoding") != 0) {
+        return errorBuilder(411, "lengthRequired", "This route needs a Content-Length header.", false, request);
     }
 
     if (info.authRequired && authenticator) {

@@ -45,6 +45,9 @@ inline gigante::RestServerConfig developmentServer() {
     config.limits.baseThreads = 8;
     config.limits.maxThreads = 32;
     config.limits.maxQueuedConnections = 32;
+    // start() refuses caps that, with reservedThreads, exceed maxThreads.
+    config.limits.maxStreams = 8;
+    config.limits.maxTransfers = 8;
     return config;
 }
 

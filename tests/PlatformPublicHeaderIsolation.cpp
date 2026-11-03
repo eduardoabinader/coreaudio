@@ -1,5 +1,5 @@
-#include "gigante/AndroidSessionPreparation.h"
-#include "gigante/SessionPreparation.h"
+#include "gigante/AndroidAudioSession.h"
+#include "gigante/AudioSession.h"
 #include "gigante/EndpointPolicy.h"
 #include "gigante/EndpointMonitor.h"
 #include "gigante/HostFacts.h"

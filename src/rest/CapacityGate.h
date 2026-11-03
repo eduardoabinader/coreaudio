@@ -36,6 +36,7 @@ public:
     std::optional<CapacityLease> tryAcquireStream();
     std::optional<CapacityLease> tryAcquireTransfer();
     void refuseNewLeases();
+    void acceptNewLeases();
     std::size_t activeStreams() const;
     std::size_t activeTransfers() const;
 

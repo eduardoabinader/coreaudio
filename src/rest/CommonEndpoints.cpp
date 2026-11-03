@@ -66,7 +66,7 @@ void CommonEndpoints::registerRoutes(Router& router) {
         response.body = sources.statusJson();
         return response;
     });
-    addRoute("getBuildVersion", true, [this](const TransportRequest&) {
+    addRoute("getIdentity", true, [this](const TransportRequest&) {
         TransportResponse response;
         response.body = "{\"apiVersion\":\"core/v1\",\"buildIdentity\":" + jsonString(sources.buildIdentity) + "}";
         return response;

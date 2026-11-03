@@ -1,10 +1,13 @@
 #pragma once
 
+#include "gigante/RestResourceStore.h"
+#include "gigante/RestStream.h"
 #include "gigante/RestTypes.h"
 
 #include <functional>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace gigante {
 
@@ -46,6 +49,21 @@ public:
 
     // Opt-in: adds POST /core/v1/services/server/stop, which drains after replying.
     void enableRemoteStop();
+
+    // Opt-in: adds /core/v1/streams. Returns null for a duplicate or invalid ID, or
+    // once start() has been called.
+    std::shared_ptr<RestStream> declareStream(RestStreamDescriptor descriptor);
+
+    // Opt-in: adds the copy* routes under /core/v1/resources and /core/v1/copy.
+    // This and the diagnostics setters below are ignored once start() has been called.
+    void setResourceStore(std::shared_ptr<RestResourceStore> store);
+
+    // Opt-in diagnostics. getLog reads only regular files ending in .log, .txt or
+    // .jsonl inside these roots, never following symbolic links.
+    void enableLogQuery(std::vector<std::string> roots, RestLogQueryLimits limits = {});
+    void setCommandStatusProvider(std::function<std::vector<RestCommandRecord>()> provider);
+    // Returns false when the command is unknown.
+    void setLogMarkerWriter(std::function<bool(const RestLogMarker&)> writer);
 
     RestStartResult start();
 

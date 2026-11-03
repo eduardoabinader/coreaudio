@@ -29,6 +29,7 @@ struct ClientResponse {
     int status = 0;
     std::string body;
     std::string errorText;
+    std::multimap<std::string, std::string> headers;
 };
 
 struct EventStreamOptions {
@@ -40,6 +41,8 @@ using ClientChunkSource = std::function<bool(std::uint64_t offset, std::size_t s
 using ClientChunkSink = std::function<bool(const char* data, std::size_t size)>;
 using ClientProgress = std::function<bool(std::uint64_t current, std::uint64_t total)>;
 using ClientEventHandler = std::function<void(const std::string& event, const std::string& data)>;
+// Sees the status and headers before any body byte; false abandons the response.
+using ClientResponseStart = std::function<bool(int status, const std::multimap<std::string, std::string>& headers)>;
 
 class HttpClientTransport {
 public:
@@ -62,6 +65,13 @@ public:
         std::uint64_t rangeStart,
         ClientChunkSink sink,
         ClientProgress progress) = 0;
+
+    // A GET whose body, whatever its status, goes to the sink as it arrives.
+    virtual ClientResponse streamGet(
+        const std::string& path,
+        const std::map<std::string, std::string>& headers,
+        ClientResponseStart onStart,
+        ClientChunkSink sink) = 0;
 
     // Blocks until cancel(), or until reconnect attempts are used up. Returns the
     // number of connections opened.

@@ -1057,3 +1057,85 @@ so REQ-RC35 was corrected. Tests found one real bug: a second requestStop aborte
 unjoined thread. Not verified: device runtime, Linux, the plaintext-removal refusal,
 RC15's own TLS minimum, and the default burst sizing. See
 docs/devreq/rest-engine/r1-acceptance.md.
+
+
+## B1 OutputRoute model — 2026-11-03
+
+User approved revised OutputRoute owning AudioLink values, not separate
+OutputRouteFactSource/snapshot classes. Added neutral native transport, link
+availability/effective selected state, separate requested identity/basis, owned
+whole-generation updates and failure invalidation. CoreO25–O27 register this
+scope; old AudioEndpoint/AudioBus/EndpointPolicy remain unchanged. No Bluetooth
+product ban, native sources, observer/DSP/session changes or AHIO adoption.
+Kuaru owns the separately tested SinuOutputEligibility pure policy; runtime
+phone blocking still needs B2/B3.
+
+C++17 route/endpoint policy/monitor tests pass 3/3, new public header isolation
+passes; complete current neutral core suite passes 12/12 with C++20/log off/REST
+off. Initial whole-core C++17 build exposes existing Logger.h/std::span mismatch;
+logger unchanged. Android API26/NDK29 arm64 and iPhoneOS27.1 arm64/iOS16 platform
+builds and standalone consumer policy/header C++17 compilation/linkage pass.
+No target binaries installed/run. Logs /private/tmp/b1-*.log and build artifacts
+/private/tmp/b1-output-route-20261103. Non-realtime model access is serialized;
+native truth, provider lifetimes, timing bounds and enforcement remain unverified.
+Pre-existing REST/header/diagram work retained; no commit/gitlink advancement by
+this phase. Consumer docs/devreq/bluetooth-output-eligibility holds combined
+roadmap/acceptance and diagrams. Both repository diff checks pass.
+
+## AudioSession and iOS output route observation — B2a (2026-11-03)
+
+Standalone go approved the user-requested SessionPreparation -> AudioSession
+rename and native iOS observation through existing serialized session ownership.
+Android context factories/JNI/direct Kuaru consumers migrated; no aliases or new
+macOS/Linux backend. ManagedAudioSession owns per-session OutputRoute generations;
+route/media events carry optional values, and loss/release/errors clear selected
+facts while stale callbacks are rejected before backend access. IosAudioSession
+preserves AVAudioSession port UID/raw type and normalized transport. Product
+status exposes diagnostics; Bluetooth policy is not applied until B3.
+
+Verification: core C++20 12/12; C++17 session/resource/route 4/4 plus public header
+isolation; Kuaru adapter/resources/policy 3/3; JNI/JVM fixture; strict arm64
+Android/iOS platform builds; signed iOS dev app/bundle verification and full
+Android dev APK compilation. iPhone native speaker facts verified over IOSDog-owned
+USB RPC with increasing generations and forward cleanup. WH-1000XM4 A2DP native query and later speaker query also pass; their process
+IDs differ (16105 -> 16113), so same-process live notification acceptance remains
+pending user clarification/retry. Other route families/interruption qualification remain pending; Android was not
+installed/listened to for B2a. Evidence: /private/tmp/b2a-audio-session and
+/private/tmp/b2a-*.log; consumer docs/devreq/ios-output-route-observation/acceptance.md.
+Preserve unrelated REST changes and do not auto-commit or advance gitlinks.
+
+B2a foreground retry (2026-11-03): PID 16113 is stable across speaker ->
+WH-1000XM4 A2DP; generation 8 -> 10 supports native notification observation
+beyond one explicit query. Subsequent user-reported power-off still yields native
+A2DP at generations 11/12, so disconnect acceptance stays open pending physical
+power-state clarification. The owned forward on 58447 is closed and final PID
+remains 16113. Initial unexplained process changes are not claimed fixed.
+The missing-speaker dropdown is a traced pre-existing active-route-versus-choice
+list defect; its UI/selection fix requires the next reviewed output-selection
+phase. No source changes or new test runs were needed for this evidence update.
+
+B2a final physical qualification (2026-11-03): confirmed headphone power-off
+now yields Speaker/builtIn selected at generation 14. PID 16113 and native
+process token are unchanged from the foreground speaker/A2DP checks (8 -> 10);
+legacy audioOutputs agrees. Thus same-process speaker -> WH-1000XM4 A2DP ->
+speaker observation passes. All owned forwards close; last port 59429 refuses
+connection. Evidence: /private/tmp/b2a-audio-session/evidence/confirmed-power-off/
+checks.json. No source fix was required by this retry. Earlier process changes
+remain unexplained and detection latency was not measured. Missing-speaker UI
+choice inventory, other route families and B3 playback blocking remain open.
+
+
+## R2 complete — 2026-11-03
+
+restcore gains opt-in live streams (SSE and binary lanes, reliable/realtime/broadcast
+policies, numbered SSE events with a gap event on reconnect and no replay), the copy*
+family over a project RestResourceStore (resume by X-Upload-Offset, SHA-256 checked
+before an atomic commit, Range downloads, pacing), and diagnostics (getLog over
+registered roots with name globs, cmdStatus, appendLogMarker). start() refuses caps
+that with reservedThreads exceed maxThreads. Once a store is set, routes with smaller
+limits refuse unsized bodies with 411. By user decision getBuildVersion became
+getIdentity: it reports the compile-time identity, and builds stay with Python
+tools/grest. 9/9 REST tests pass on OpenSSL 3.5.9 and Mbed TLS 3.6.7 on macOS, plus 29
+curl checks and the R0 probes; Android and iOS compile only. Not verified: device
+runtime, Linux, a real mid-upload disconnect, the RC06 call-site audit. See
+docs/devreq/rest-engine/r2-acceptance.md.

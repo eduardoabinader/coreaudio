@@ -45,10 +45,10 @@ struct Fixture
     {
         auto owned = std::make_unique<FakeDriver>();
         driver = owned.get();
-        session = gigante::makeAndroidSessionPreparation(std::move(owned));
+        session = gigante::makeAndroidAudioSession(std::move(owned));
     }
     FakeDriver* driver;
-    std::unique_ptr<gigante::SessionPreparation> session;
+    std::unique_ptr<gigante::AudioSession> session;
 };
 void grantedAndChanges()
 {

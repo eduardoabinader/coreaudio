@@ -66,6 +66,10 @@ void CapacityGate::refuseNewLeases() {
     refusing.store(true);
 }
 
+void CapacityGate::acceptNewLeases() {
+    refusing.store(false);
+}
+
 std::size_t CapacityGate::activeStreams() const {
     return streamCounter->load();
 }

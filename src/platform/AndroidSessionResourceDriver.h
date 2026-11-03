@@ -1,5 +1,5 @@
 #pragma once
-#include "gigante/SessionPreparation.h"
+#include "gigante/AudioSession.h"
 #if defined(__ANDROID__)
 #include <jni.h>
 #endif

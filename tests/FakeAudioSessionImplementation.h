@@ -1,14 +1,14 @@
 #pragma once
-#include "SessionPreparationImplementation.h"
+#include "AudioSessionImplementation.h"
 #include <stdexcept>
 #include <utility>
 
-class FakeSessionPreparationImplementation final
-    : public gigante::SessionPreparationImplementation
+class FakeAudioSessionImplementation final
+    : public gigante::AudioSessionImplementation
 {
 public:
     gigante::SessionReport prepare(gigante::SessionRequest request,
-                                   gigante::SessionPreparation::Callback sink) override
+                                   gigante::AudioSession::Callback sink) override
     {
         ++prepareCount;
         signal = std::move(sink);
@@ -22,10 +22,19 @@ public:
         ++releaseCount;
         return releaseResult;
     }
+    gigante::OutputRoute observeOutputRoute() override
+    {
+        ++routeQueries;
+        if (throwOnObserve) throw std::runtime_error("native route query failed");
+        return route;
+    }
+    gigante::OutputRoute route;
+    int routeQueries{0};
+    bool throwOnObserve{false};
     gigante::SessionReport prepareResult{ {}, true, true,
         gigante::SessionStatus::active, "playback", "default", {}, {}, {} };
     gigante::SessionReport releaseResult;
-    gigante::SessionPreparation::Callback signal;
+    gigante::AudioSession::Callback signal;
     int prepareCount{0};
     int releaseCount{0};
     bool throwOnPrepare{false};

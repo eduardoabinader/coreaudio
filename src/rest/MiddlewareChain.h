@@ -22,6 +22,9 @@ public:
     void setAuthenticator(RestAuthenticator authenticator);
     void setCorsAllowOrigin(std::string origin);
     void setDefaultBodyLimit(std::size_t bytes);
+    // The transport's own limit. When it is above a route's limit, a body without
+    // Content-Length could pass the route limit, so such a request is refused with 411.
+    void setTransportBodyLimit(std::size_t bytes);
 
     std::optional<TransportResponse> evaluate(const TransportRequest& request) const;
 
@@ -32,10 +35,14 @@ private:
     RestAuthenticator authenticator;
     std::string corsAllowOrigin;
     std::size_t defaultBodyLimit = 0;
+    std::size_t transportBodyLimit = 0;
 };
 
 // Converts a transport request, assigning its identifiers.
 RestRequest toRestRequest(const TransportRequest& request, const std::string& requestId);
+
+// Header names compare without regard to case, as HTTP requires.
+std::optional<std::string> requestHeader(const TransportRequest& request, const std::string& name);
 
 // Accepts a client's X-Request-Id only when it is safe to echo.
 std::string safeRequestHeaderValue(const TransportRequest& request, const std::string& name);

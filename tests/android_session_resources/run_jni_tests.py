@@ -30,7 +30,8 @@ def main():
                         '-dynamiclib' if platform.system() == 'Darwin' else '-shared', '-fPIC',
                         str(root / 'tests/AndroidSessionResourceJniTests.cpp'),
                         str(root / 'src/platform/AndroidSessionResourceJni.cpp'),
-                        str(root / 'src/platform/SessionPreparation.cpp'), '-o', str(library)], check=True)
+                        str(root / 'src/platform/AudioSession.cpp'),
+                        str(root / 'src/platform/OutputRoute.cpp'), '-o', str(library)], check=True)
         classes = output / 'classes'
         classes.mkdir()
         sources = sorted(str(path) for path in (root / 'tests/android_session_resources/java').rglob('*.java'))

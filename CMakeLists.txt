@@ -75,17 +75,19 @@ target_sources(
 target_sources(
     gigantePlatform
     PRIVATE
-        src/platform/AndroidSessionPreparation.cpp
+        src/platform/AndroidAudioSession.cpp
         src/platform/AndroidAudioFocusDriver.h
         src/platform/AndroidSessionResourceDriver.h
-        src/platform/SessionPreparation.cpp
-        src/platform/SessionPreparationImplementation.h
-        include/gigante/SessionPreparation.h
+        src/platform/AudioSession.cpp
+        src/platform/AudioSessionImplementation.h
+        include/gigante/AudioSession.h
         src/platform/EndpointMonitor.cpp
         src/platform/EndpointPolicy.cpp
+        src/platform/OutputRoute.cpp
         src/platform/HostFacts.cpp
         include/gigante/EndpointMonitor.h
         include/gigante/EndpointPolicy.h
+        include/gigante/OutputRoute.h
         include/gigante/HostFacts.h
 )
 
@@ -128,7 +130,7 @@ if(ANDROID)
         src/platform/AndroidSessionJni.cpp
         src/platform/AndroidSessionResourceJni.cpp
         src/platform/AndroidSessionJniSupport.h
-        include/gigante/AndroidSessionPreparation.h)
+        include/gigante/AndroidAudioSession.h)
     target_sources(
         gigantePlatform
         PRIVATE
@@ -138,10 +140,10 @@ if(ANDROID)
     set(GIGANTE_PLATFORM_NAME "Android")
 elseif(CMAKE_SYSTEM_NAME STREQUAL "iOS")
     enable_language(OBJCXX)
-    target_sources(gigantePlatform PRIVATE src/platform/IosSessionPreparation.mm)
+    target_sources(gigantePlatform PRIVATE src/platform/IosAudioSession.mm)
     target_compile_definitions(gigantePlatform PRIVATE GIGANTE_IOS_SESSION=1)
     set_target_properties(gigantePlatform PROPERTIES OBJCXX_STANDARD 17 OBJCXX_STANDARD_REQUIRED YES)
-    set_source_files_properties(src/platform/IosSessionPreparation.mm PROPERTIES COMPILE_OPTIONS "-fno-objc-arc")
+    set_source_files_properties(src/platform/IosAudioSession.mm PROPERTIES COMPILE_OPTIONS "-fno-objc-arc")
     find_library(GIGANTE_AVFOUNDATION_FRAMEWORK AVFoundation REQUIRED)
     find_library(GIGANTE_FOUNDATION_FRAMEWORK Foundation REQUIRED)
     target_link_libraries(gigantePlatform PRIVATE

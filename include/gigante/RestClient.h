@@ -1,5 +1,6 @@
 #pragma once
 
+#include "gigante/RestSubscription.h"
 #include "gigante/RestTypes.h"
 
 #include <functional>
@@ -31,14 +32,33 @@ public:
     RestResult health();
     RestResult heartbeat();
     RestResult status();
-    RestResult getBuildVersion();
+    RestResult getIdentity();
     RestResult getCapabilities();
     RestResult checkDeps();
     RestResult startService(const std::string& name);
     RestResult stopService(const std::string& name);
     RestResult restartService(const std::string& name);
 
-    // Ends calls in progress, from any thread. Later calls are unaffected.
+    // Callbacks run on the subscription's own thread. onClosed runs exactly once.
+    std::unique_ptr<RestSubscription> subscribe(
+        const std::string& streamId,
+        std::function<void(const RestStreamEvent&)> onEvent,
+        std::function<void(RestSubscriptionEnd, const std::string& detail)> onClosed,
+        RestSubscriptionOptions options = {});
+
+    RestResult listResources();
+    // Resumes from the server's received offset after a lost connection.
+    RestResult upload(const std::string& resourceId, std::uint64_t size, const std::string& sha256, RestUploadSource source, RestCallOptions options = {});
+    // result.sha256 covers the bytes delivered by this call, so it is the resource's
+    // digest only when fromOffset is 0.
+    RestResult download(const std::string& resourceId, RestDownloadSink sink, std::uint64_t fromOffset = 0, RestCallOptions options = {});
+
+    RestResult getLog(const std::string& fileGlob, const std::vector<std::string>& filters = {}, std::size_t maxLines = 200);
+    RestResult cmdStatus(const std::string& nameGlob = "*");
+    RestResult appendLogMarker(const std::string& command, const std::string& event, const std::string& text, const std::string& origin = "client");
+
+    // Ends calls and transfers in progress, from any thread. Subscriptions are
+    // canceled through their own handles. Later calls are unaffected.
     void cancel();
 
 private:

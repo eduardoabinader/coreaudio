@@ -59,7 +59,7 @@ void lifecycle()
     std::vector<int> trace;
     auto resources = std::make_unique<Resources>(trace);
     auto* native = resources.get();
-    auto session = makeAndroidSessionPreparation(std::make_unique<Focus>(trace), std::move(resources));
+    auto session = makeAndroidAudioSession(std::make_unique<Focus>(trace), std::move(resources));
     require(session->requestResource(SessionResource::backgroundAudio).observed == SessionResourceState::pending,
             "accepted service start invented running state");
     require(session->requestResource(SessionResource::cpuAwake).observed == SessionResourceState::active,
@@ -83,7 +83,7 @@ void independentFailure()
     std::vector<int> trace;
     auto resources = std::make_unique<Resources>(trace);
     auto* native = resources.get();
-    auto session = makeAndroidSessionPreparation(std::make_unique<Focus>(trace), std::move(resources));
+    auto session = makeAndroidAudioSession(std::make_unique<Focus>(trace), std::move(resources));
     (void) session->prepare({}, [](const auto&) {});
     (void) session->requestResource(SessionResource::cpuAwake);
     native->throws = true;
@@ -111,7 +111,7 @@ void partialFailureCause()
     std::vector<int> trace;
     auto resources = std::make_unique<Resources>(trace);
     auto* native = resources.get();
-    auto session = makeAndroidSessionPreparation(std::make_unique<Focus>(trace), std::move(resources));
+    auto session = makeAndroidAudioSession(std::make_unique<Focus>(trace), std::move(resources));
     native->partialFailure = true;
     auto report = session->requestResource(SessionResource::cpuAwake);
     require(report.owned && report.error->code == 9, "partial ownership or request cause lost");
@@ -124,14 +124,14 @@ void partialFailureCause()
 }
 void unsupportedAndDestruction()
 {
-    auto unsupported = SessionPreparation::create();
+    auto unsupported = AudioSession::create();
     auto report = unsupported->requestResource(SessionResource::cpuAwake);
     require(!report.supported && !report.owned && report.error
             && report.observed == SessionResourceState::unavailable, "unsupported resource reported success");
     require(report.requestedActive == true && report.operationAccepted == false, "unsupported request lost requested/accepted facts");
     std::vector<int> trace;
     {
-        auto session = makeAndroidSessionPreparation(std::make_unique<Focus>(trace), std::make_unique<Resources>(trace));
+        auto session = makeAndroidAudioSession(std::make_unique<Focus>(trace), std::make_unique<Resources>(trace));
         (void) session->requestResource(SessionResource::cpuAwake);
     }
     require(trace == std::vector<int>({1}), "resource-only session destructor leaked or abandoned unowned focus");

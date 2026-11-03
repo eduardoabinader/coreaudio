@@ -1,6 +1,7 @@
 #include "Router.h"
 
 #include <cctype>
+#include <utility>
 
 namespace gigante {
 
@@ -141,7 +142,15 @@ RouteAddResult Router::addCommon(HttpMethod method, const std::string& pattern, 
 }
 
 RouteAddResult Router::addUpload(HttpMethod method, const std::string& pattern, UploadHandler handler, RouteInfo info) {
-    const RouteAddResult result = check(method, pattern, false);
+    return addUploadRoute(method, pattern, std::move(handler), info, false);
+}
+
+RouteAddResult Router::addCommonUpload(HttpMethod method, const std::string& pattern, UploadHandler handler, RouteInfo info) {
+    return addUploadRoute(method, pattern, std::move(handler), info, true);
+}
+
+RouteAddResult Router::addUploadRoute(HttpMethod method, const std::string& pattern, UploadHandler handler, RouteInfo info, bool allowReserved) {
+    const RouteAddResult result = check(method, pattern, allowReserved);
     if (result == RouteAddResult::added) {
         entries.push_back({method, splitPath(pattern), info});
         transport.addUploadRoute(

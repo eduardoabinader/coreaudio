@@ -1,5 +1,5 @@
 #pragma once
-#include "gigante/SessionPreparation.h"
+#include "gigante/AudioSession.h"
 #include <jni.h>
 #include <string>
 

@@ -41,7 +41,7 @@ std::size_t queuedConnections = 32;
 
 class CapacityServer {
 public:
-    CapacityServer(DeliveryPolicy policy, std::size_t chunkBytes, int publishIntervalMilliseconds, std::size_t poolThreads = 100)
+    CapacityServer(RestDeliveryPolicy policy, std::size_t chunkBytes, int publishIntervalMilliseconds, std::size_t poolThreads = 100)
         : maxThreads(poolThreads),
           gate(streamCap, transferCap, metrics),
           hub(metrics),
@@ -49,7 +49,8 @@ public:
           router(transport),
           chunkSize(chunkBytes),
           publishInterval(publishIntervalMilliseconds) {
-        StreamDescriptor descriptor;
+        RestStreamDescriptor descriptor;
+        descriptor.lane = RestStreamLane::binary;
         descriptor.id = "live";
         descriptor.contentType = "application/octet-stream";
         descriptor.policy = policy;
@@ -458,7 +459,7 @@ Results runScenario(CapacityServer& server, bool useTls, const std::string& name
 }
 
 void hundredClients(bool useTls, ProbeReport& report) {
-    CapacityServer server(DeliveryPolicy::broadcast, 1024, 50);
+    CapacityServer server(RestDeliveryPolicy::broadcast, 1024, 50);
     const double seconds = 20.0 * scale;
     Results results = runScenario(server, useTls, "hundred", report, [=](int port) {
         return runMixedClients(port, useTls, 70, 20, 9, seconds);
@@ -469,7 +470,7 @@ void hundredClients(bool useTls, ProbeReport& report) {
 }
 
 void hundredClientsHeadroom(bool useTls, ProbeReport& report) {
-    CapacityServer server(DeliveryPolicy::broadcast, 1024, 50, 140);
+    CapacityServer server(RestDeliveryPolicy::broadcast, 1024, 50, 140);
     const double seconds = 20.0 * scale;
     Results results = runScenario(server, useTls, "hundredPool140", report, [=](int port) {
         return runMixedClients(port, useTls, 70, 20, 9, seconds);
@@ -482,7 +483,7 @@ void hundredClientsHeadroom(bool useTls, ProbeReport& report) {
 void hundredClientsBurstSizing(bool useTls, ProbeReport& report) {
     basePoolThreads = 64;
     queuedConnections = 128;
-    CapacityServer server(DeliveryPolicy::broadcast, 1024, 50);
+    CapacityServer server(RestDeliveryPolicy::broadcast, 1024, 50);
     const double seconds = 20.0 * scale;
     Results results = runScenario(server, useTls, "hundredBurst", report, [=](int port) {
         return runMixedClients(port, useTls, 70, 20, 9, seconds);
@@ -495,7 +496,7 @@ void hundredClientsBurstSizing(bool useTls, ProbeReport& report) {
 void overloadClientsBurstSizing(bool useTls, ProbeReport& report) {
     basePoolThreads = 64;
     queuedConnections = 128;
-    CapacityServer server(DeliveryPolicy::broadcast, 1024, 50);
+    CapacityServer server(RestDeliveryPolicy::broadcast, 1024, 50);
     const double seconds = 15.0 * scale;
     Results results = runScenario(server, useTls, "overloadBurst", report, [=](int port) {
         return runMixedClients(port, useTls, 100, 30, 19, seconds);
@@ -506,7 +507,7 @@ void overloadClientsBurstSizing(bool useTls, ProbeReport& report) {
 }
 
 void overloadClients(bool useTls, ProbeReport& report) {
-    CapacityServer server(DeliveryPolicy::broadcast, 1024, 50);
+    CapacityServer server(RestDeliveryPolicy::broadcast, 1024, 50);
     const double seconds = 15.0 * scale;
     Results results = runScenario(server, useTls, "overload150", report, [=](int port) {
         return runMixedClients(port, useTls, 100, 30, 19, seconds);
@@ -517,7 +518,7 @@ void overloadClients(bool useTls, ProbeReport& report) {
 }
 
 void idleFlood(bool useTls, ProbeReport& report) {
-    CapacityServer server(DeliveryPolicy::realtime, 1024, 0);
+    CapacityServer server(RestDeliveryPolicy::realtime, 1024, 0);
     Results results = runScenario(server, useTls, "idleFlood150", report, [=](int port) {
         return runIdleFlood(port, useTls, 150, 8.0);
     });
@@ -525,7 +526,7 @@ void idleFlood(bool useTls, ProbeReport& report) {
 }
 
 void idleFloodWidePool(bool useTls, ProbeReport& report) {
-    CapacityServer server(DeliveryPolicy::realtime, 1024, 0, 200);
+    CapacityServer server(RestDeliveryPolicy::realtime, 1024, 0, 200);
     Results results = runScenario(server, useTls, "idleFlood150Pool200", report, [=](int port) {
         return runIdleFlood(port, useTls, 150, 8.0);
     });
@@ -533,7 +534,7 @@ void idleFloodWidePool(bool useTls, ProbeReport& report) {
 }
 
 void stalledStreams(bool useTls, ProbeReport& report) {
-    CapacityServer server(DeliveryPolicy::realtime, 64 * 1024, 5);
+    CapacityServer server(RestDeliveryPolicy::realtime, 64 * 1024, 5);
     Results results = runScenario(server, useTls, "stalled20", report, [=](int port) {
         return runStalledStreams(port, useTls, 20, 10.0 * scale);
     });
@@ -544,7 +545,7 @@ void stalledStreams(bool useTls, ProbeReport& report) {
 
 void stalledStreamsShortTimeout(bool useTls, ProbeReport& report) {
     writeTimeoutMilliseconds = 500;
-    CapacityServer server(DeliveryPolicy::realtime, 64 * 1024, 5);
+    CapacityServer server(RestDeliveryPolicy::realtime, 64 * 1024, 5);
     Results results = runScenario(server, useTls, "stalled20Write500", report, [=](int port) {
         return runStalledStreams(port, useTls, 20, 10.0 * scale);
     });
@@ -552,7 +553,7 @@ void stalledStreamsShortTimeout(bool useTls, ProbeReport& report) {
 }
 
 void slowBodies(bool useTls, ProbeReport& report) {
-    CapacityServer server(DeliveryPolicy::realtime, 1024, 0);
+    CapacityServer server(RestDeliveryPolicy::realtime, 1024, 0);
     Results results = runScenario(server, useTls, "slowBody5", report, [=](int port) {
         return runSlowBodies(port, useTls, 5);
     });
@@ -560,7 +561,7 @@ void slowBodies(bool useTls, ProbeReport& report) {
 }
 
 void slowHeaders(ProbeReport& report) {
-    CapacityServer server(DeliveryPolicy::realtime, 1024, 0);
+    CapacityServer server(RestDeliveryPolicy::realtime, 1024, 0);
     const double limitSeconds = 30.0 * scale;
     Results results = runScenario(server, false, "slowHeaders5", report, [=](int port) {
         return runSlowHeaders(port, 5, limitSeconds);

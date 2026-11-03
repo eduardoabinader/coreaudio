@@ -1,7 +1,8 @@
-#include "SessionPreparationImplementation.h"
+#include "AudioSessionImplementation.h"
 
 #include <exception>
 #include <mutex>
+#include <limits>
 #include <stdexcept>
 #include <utility>
 
@@ -22,12 +23,19 @@ SessionResourceReport unsupportedSessionResource(SessionResource resource, std::
     result.error = SessionError{"sessionResource", "gigante", 0, "resource backend is unavailable"};
     return result;
 }
-SessionResourceReport SessionPreparation::requestResource(SessionResource resource)
+SessionResourceReport AudioSession::requestResource(SessionResource resource)
 { return unsupportedSessionResource(resource, true); }
-SessionResourceReport SessionPreparation::releaseResource(SessionResource resource)
+SessionResourceReport AudioSession::releaseResource(SessionResource resource)
 { return unsupportedSessionResource(resource, false); }
-SessionResourceReport SessionPreparation::observeResource(SessionResource resource)
+SessionResourceReport AudioSession::observeResource(SessionResource resource)
 { return unsupportedSessionResource(resource); }
+
+OutputRoute AudioSession::observeOutputRoute()
+{
+    OutputRoute route;
+    (void) route.markUnavailable(1, "output route backend is unavailable");
+    return route;
+}
 
 namespace
 {
@@ -35,18 +43,46 @@ struct SessionState
 {
     std::recursive_mutex mutex;
     SessionReport report;
-    SessionPreparation::Callback callback;
+    AudioSession::Callback callback;
+    OutputRoute route;
     bool accepting{false};
     std::uint64_t generation{0};
 };
 
-class ManagedSession final : public SessionPreparation
+void observeRoute(SessionState& state, AudioSessionImplementation& backend,
+                  const char* unavailable = nullptr)
+{
+    const auto previous = state.route.generation();
+    if (previous == std::numeric_limits<std::uint64_t>::max()) return;
+    const auto generation = previous + 1;
+    if (unavailable != nullptr)
+    {
+        (void) state.route.markUnavailable(generation, unavailable);
+        return;
+    }
+    try
+    {
+        const auto observed = backend.observeOutputRoute();
+        if (observed.status() == OutputRouteStatus::available)
+            (void) state.route.updateLinks(generation, observed.links(), observed.basis());
+        else if (observed.status() == OutputRouteStatus::failed)
+            (void) state.route.markFailed(generation, observed.context());
+        else
+            (void) state.route.markUnavailable(generation, observed.context());
+    }
+    catch (const std::exception& error)
+    { (void) state.route.markFailed(generation, error.what()); }
+    catch (...)
+    { (void) state.route.markFailed(generation, "unknown output route observation exception"); }
+}
+
+class ManagedAudioSession final : public AudioSession
 {
     enum class ResourceOperation { request, release, observe };
 public:
-    explicit ManagedSession(std::unique_ptr<SessionPreparationImplementation> backendIn)
+    explicit ManagedAudioSession(std::unique_ptr<AudioSessionImplementation> backendIn)
         : backend(std::move(backendIn)), state(std::make_shared<SessionState>()) {}
-    ~ManagedSession() override { (void) release(); }
+    ~ManagedAudioSession() override { (void) release(); }
 
     SessionReport prepare(SessionRequest request, Callback callback) override
     {
@@ -70,7 +106,7 @@ public:
         const std::weak_ptr<SessionState> weak = state;
         try
         {
-            state->report = backend->prepare(request, [weak, generation](const SessionEvent& event)
+            state->report = backend->prepare(request, [weak, generation, native = backend.get()](const SessionEvent& event)
             {
                 const auto current = weak.lock();
                 if (!current) return;
@@ -94,7 +130,22 @@ public:
                 try
                 {
                     auto callbackCopy = current->callback;
-                    callbackCopy(event);
+                    auto delivered = event;
+                    if (event.kind == SessionEventKind::routeChanged)
+                    {
+                        observeRoute(*current, *native,
+                            current->report.activationApplied ? nullptr : "audio session activation is unavailable");
+                        delivered.outputRoute = current->route;
+                    }
+                    else if (event.kind == SessionEventKind::mediaServicesLost
+                             || event.kind == SessionEventKind::mediaServicesReset)
+                    {
+                        observeRoute(*current, *native, event.kind == SessionEventKind::mediaServicesLost
+                            ? "audio media services lost; activation is unavailable"
+                            : "audio media services reset; activation is unavailable");
+                        delivered.outputRoute = current->route;
+                    }
+                    callbackCopy(delivered);
                 }
                 catch (const std::exception& error)
                 {
@@ -146,6 +197,7 @@ public:
             if (state->report.resources[index].owned)
                 (void) releaseResource(resource);
         }
+        observeRoute(*state, *backend, "audio session released");
         if (!needsRelease) return state->report;
         state->accepting = false;
         ++state->generation;
@@ -168,6 +220,14 @@ public:
     { return resourceOperation(resource, ResourceOperation::release); }
     SessionResourceReport observeResource(SessionResource resource) override
     { return resourceOperation(resource, ResourceOperation::observe); }
+
+    OutputRoute observeOutputRoute() override
+    {
+        std::lock_guard<std::recursive_mutex> lock(state->mutex);
+        observeRoute(*state, *backend,
+            state->accepting && state->report.activationApplied ? nullptr : "audio session is not activated");
+        return state->route;
+    }
 
     SessionReport report() const override
     {
@@ -213,15 +273,15 @@ private:
         }
         return previous;
     }
-    std::unique_ptr<SessionPreparationImplementation> backend;
+    std::unique_ptr<AudioSessionImplementation> backend;
     std::shared_ptr<SessionState> state;
     bool needsRelease{false};
 };
 
 #if !defined(GIGANTE_IOS_SESSION)
-class UnsupportedSession final : public SessionPreparationImplementation
+class UnsupportedAudioSession final : public AudioSessionImplementation
 {
-    SessionReport prepare(SessionRequest request, SessionPreparation::Callback) override
+    SessionReport prepare(SessionRequest request, AudioSession::Callback) override
     {
         SessionReport result;
         result.requested = request;
@@ -235,19 +295,19 @@ class UnsupportedSession final : public SessionPreparationImplementation
 #endif
 } // namespace
 
-std::unique_ptr<SessionPreparation> makeSessionPreparation(
-    std::unique_ptr<SessionPreparationImplementation> implementation)
+std::unique_ptr<AudioSession> makeAudioSession(
+    std::unique_ptr<AudioSessionImplementation> implementation)
 {
     if (!implementation) throw std::invalid_argument("session implementation is null");
-    return std::make_unique<ManagedSession>(std::move(implementation));
+    return std::make_unique<ManagedAudioSession>(std::move(implementation));
 }
 
-std::unique_ptr<SessionPreparation> SessionPreparation::create()
+std::unique_ptr<AudioSession> AudioSession::create()
 {
 #if defined(GIGANTE_IOS_SESSION)
-    return makeSessionPreparation(makeIosSessionPreparation());
+    return makeAudioSession(makeIosAudioSession());
 #else
-    return makeSessionPreparation(std::make_unique<UnsupportedSession>());
+    return makeAudioSession(std::make_unique<UnsupportedAudioSession>());
 #endif
 }
 } // namespace gigante

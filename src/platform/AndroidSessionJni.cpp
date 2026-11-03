@@ -1,4 +1,4 @@
-#include "gigante/AndroidSessionPreparation.h"
+#include "gigante/AndroidAudioSession.h"
 #include "AndroidAudioFocusDriver.h"
 #include "AndroidSessionJniSupport.h"
 
@@ -60,7 +60,7 @@ void JNICALL onFocusChange(JNIEnv*, jclass, jlong token, jint change)
         }
         callback(static_cast<int>(change));
     }
-    catch (...) { /* Consumer exceptions are recorded by ManagedSession. */ }
+    catch (...) { /* Consumer exceptions are recorded by ManagedAudioSession. */ }
 }
 class JniAudioFocusDriver final : public AndroidAudioFocusDriver
 {
@@ -71,7 +71,7 @@ public:
         {
             if (env) check(env, "resolve AudioFocusListener");
             if (!env || !contextIn || !listenerClassIn)
-                fail("createAndroidSessionPreparation", "JNI environment, application context and listener class are required");
+                fail("createAndroidAudioSession", "JNI environment, application context and listener class are required");
             const auto result = env->GetJavaVM(&vm);
             if (result != JNI_OK) fail("GetJavaVM", "Java VM is unavailable", result);
             context = required(env, env->NewGlobalRef(contextIn), "retain application context");
@@ -193,17 +193,17 @@ private:
     std::optional<SessionError> initializationError;
 };
 }
-std::unique_ptr<SessionPreparation> createAndroidSessionPreparation(
+std::unique_ptr<AudioSession> createAndroidAudioSession(
     JNIEnv* env, jobject applicationContext, jclass listenerClass)
 {
-    return makeAndroidSessionPreparation(
+    return makeAndroidAudioSession(
         std::make_unique<JniAudioFocusDriver>(env, applicationContext, listenerClass));
 }
-std::unique_ptr<SessionPreparation> createAndroidSessionPreparation(
+std::unique_ptr<AudioSession> createAndroidAudioSession(
     JNIEnv* env, jobject applicationContext, jclass listenerClass,
     jclass foregroundServiceClass, jclass wakeLockClass)
 {
-    return makeAndroidSessionPreparation(
+    return makeAndroidAudioSession(
         std::make_unique<JniAudioFocusDriver>(env, applicationContext, listenerClass),
         makeAndroidSessionResourceDriver(env, applicationContext, foregroundServiceClass, wakeLockClass));
 }

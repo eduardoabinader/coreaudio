@@ -43,8 +43,9 @@ add_library(restFeasibilityCore STATIC
     "${coreRoot}/src/rest/Router.cpp"
     "${coreRoot}/src/rest/StreamHub.cpp"
     "${coreRoot}/src/rest/StreamSession.cpp"
+    "${coreRoot}/src/rest/Sha256.cpp"
 )
-target_include_directories(restFeasibilityCore PUBLIC "${coreRoot}/src/rest")
+target_include_directories(restFeasibilityCore PUBLIC "${coreRoot}/src/rest" "${coreRoot}/include")
 target_include_directories(restFeasibilityCore SYSTEM PUBLIC "${cpphttplib_SOURCE_DIR}")
 target_compile_options(restFeasibilityCore PRIVATE -Wall -Wextra -Wpedantic -Werror)
 

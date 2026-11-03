@@ -147,7 +147,7 @@ is demonstrably neutral and required by this library.
 
 ## iOS session preparation — phase A (2026-10-30)
 
-The approved phase adds the shared `SessionPreparation` contract and iOS native
+The approved phase adds the shared `AudioSession` contract and iOS native
 backend only. See architecture.md for lifetime, threading and process lease
 rules. REQ-O20 and REQ-O17 remain partial: physical behavior, Kuaru adoption,
 route-port inventory and all other platform implementations are not verified.
@@ -160,7 +160,7 @@ device readiness, and this layer must not duplicate JUCE's recovery loop.
 
 ## Android audio-focus migration — C1 (2026-11-02)
 
-The approved C1 phase adds AndroidSessionPreparation and its JNI driver, explicit
+The approved C1 phase adds AndroidAudioSession and its JNI driver, explicit
 context/class factory and small shared Java listener. REQ-O20 remains partial.
 Only focus migrates; locks, foreground service, scheduling, endpoint inventory
 and AHIO adoption remain outside C1. Use the neutral injected backend tests and
@@ -205,8 +205,8 @@ platform mechanisms keep REQ-O20/O21 partial.
 
 ## REST engine — Group R (2026-11-02)
 
-`gigante::restcore` (Group R, `REQ-RC`) is implemented through R1: tested on macOS and
-compile-only on Android and iOS. It is a narrow, user-requested exception to the Scope
+`gigante::restcore` (Group R, `REQ-RC`) is implemented through R2 (streams, `copy*`,
+diagnostics): tested on macOS and compile-only on Android and iOS. It is a narrow, user-requested exception to the Scope
 boundary above, and does not admit other RPC, device or UI infrastructure. It stays
 opt-in through `GIGANTE_BUILD_REST`, default `OFF`, and core, platform and log targets
 gain no network dependency. restcore is C++17 and does not link `gigante::log`.
@@ -215,4 +215,29 @@ it; libhv is the fallback. The public API is C++ only for now. Use is limited to
 networks until the gaps in docs/devreq/rest-engine/feasibility.md are mitigated.
 Loopback sockets in tests are the only exception to the no-network test rule.
 `modules/grest-cpp` is superseded. Engine APIs are never called from an audio callback.
-Each phase needs its own roadmap and standalone `go`; project adoption is not authorized.
+The engine never builds at run time: `getIdentity` (formerly `getBuildVersion`) only
+reports the identity fixed at compile time; triggering builds stays with Python
+`tools/grest`. Each phase needs its own roadmap and standalone `go`; project adoption
+is not authorized.
+
+
+## Output route model — B1 (2026-11-03)
+
+The approved B1 adds only OutputRoute/AudioLink values in gigante::platform,
+reusing AudioEndpoint without changing AudioBus/EndpointPolicy. Updates are
+complete, serialized non-realtime observations with generation/status/context;
+requested intent never sets effective selected flags. No separate snapshot or
+fact-source class, native provider, observer or audio-thread collection access.
+Core O25–O27 are additive. Kuaru owns its Bluetooth output rule; do not move that
+ban into shared core or affect AHIO/MIDI. B2 native Android/iOS providers and B3
+playback enforcement require separate approved roadmaps. Current tests prove
+model/policy semantics and mobile compilation, not physical route blocking.
+
+## AudioSession and iOS output observation — B2a (2026-11-03)
+
+B2a authorizes the user-requested AudioSession rename and native iOS observation
+through the existing serialized wrapper/lease/notifications. Do not reintroduce
+SessionPreparation aliases, a second observer owner or a snapshot manager. Keep
+raw native types, explicit unknown/failure facts and invalidation on media loss
+and release. Android actual stream binding is B2b; playback enforcement remains
+Kuaru-owned B3 on both mobile platforms. No macOS/Linux backend is implemented.

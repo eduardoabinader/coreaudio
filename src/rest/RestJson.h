@@ -1,6 +1,9 @@
 #pragma once
 
+#include <cstdint>
 #include <cstdio>
+#include <map>
+#include <optional>
 #include <string>
 
 namespace gigante {
@@ -33,5 +36,24 @@ inline std::string jsonError(const std::string& code, const std::string& message
     return "{\"version\":1,\"code\":" + jsonString(code) + ",\"message\":" + jsonString(message) +
            ",\"requestId\":" + jsonString(requestId) + ",\"retryable\":" + (retryable ? "true" : "false") + "}";
 }
+
+// A parsed member of a JSON object. Nested arrays and objects are kept as raw text.
+struct JsonField {
+    enum class Kind { string, number, boolean, null, composite };
+    Kind kind = Kind::null;
+    std::string text;
+};
+
+using JsonObject = std::map<std::string, JsonField>;
+
+// Parses one top-level object, strictly: duplicate keys, trailing text and nesting
+// deeper than maxDepth are refused.
+std::optional<JsonObject> parseJsonObject(const std::string& text, int maxDepth = 8);
+
+bool jsonText(const JsonObject& object, const std::string& key, std::string& value);
+bool jsonUnsigned(const JsonObject& object, const std::string& key, std::uint64_t& value);
+
+// Replaces bytes that are not valid UTF-8 with '?', so the result can go into jsonString.
+std::string validUtf8(const std::string& value);
 
 } // namespace gigante

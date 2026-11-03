@@ -209,7 +209,7 @@ speculative platform infrastructure.
 Group O and Group P extend the structure without changing `giganteCore`.
 Host facts (P11B), the neutral endpoint value/policy layer (P11C), and the
 injected endpoint-monitor lifecycle are present. Concrete platform endpoint
-sources are deferred; SessionPreparation has iOS and Android-focus backends. Logging has its
+sources are deferred; AudioSession has iOS and Android-focus backends. Logging has its
 separate foundation described below.
 
 ```text
@@ -217,7 +217,7 @@ giganteCore      JUCE-free DSP; depends on nothing below
 gigantePlatform  HostFactsSource, AudioEndpoint, AudioBus, EndpointInventory,
                  EndpointPolicy, EndpointMonitor and EndpointChangeSource
                  (present as neutral/injected contracts); no concrete endpoint
-                 source; SessionPreparation with iOS and Android-focus backends
+                 source; AudioSession with iOS and Android-focus backends
 giganteLog       Logger with levels and per-platform backends; Linux/Android
                  foundation present; product-supplied compile ceiling remains
                  while macOS native sink and shared BuildPolicy are deferred
@@ -866,9 +866,9 @@ contract.
 
 ### Session preparation — iOS phase A
 
-`SessionPreparation` is the neutral public interface in `gigantePlatform`.
+`AudioSession` is the neutral public interface in `gigantePlatform`.
 `create()` returns `ManagedSession`, which owns a private
-`SessionPreparationImplementation`. `IosSessionPreparation` implements that
+`AudioSessionImplementation`. `IosAudioSession` implements that
 backend through Objective-C++; the no-context factory reports unavailable elsewhere.
 Android now uses the explicit context-taking factory described in C1 below.
 No product, JUCE, Objective-C or AVFoundation types enter the public header.
@@ -935,19 +935,19 @@ Design evidence:
 
 ### Android session preparation — C1 (2026-11-02)
 
-Only audio focus migrates in C1 (REQ-O20). `AndroidSessionPreparation` implements
+Only audio focus migrates in C1 (REQ-O20). `AndroidAudioSession` implements
 the private session backend and owns an injected `AndroidAudioFocusDriver`.
 The production `JniAudioFocusDriver` is compiled only for Android; a fake drives
 the identical neutral backend in desktop tests. Platform CMake links no DSP.
 No change to JNI_OnLoad or product-package JNI export is required.
 
 The separate Android-only public header exposes
-`createAndroidSessionPreparation(JNIEnv*, jobject, jclass)`. The consumer must
+`createAndroidAudioSession(JNIEnv*, jobject, jclass)`. The consumer must
 resolve `com.gigantelabs.platform.AudioFocusListener` through the application
 class loader and supply the application context. The factory retains global
 references and obtains JavaVM; it never knows Kuaru classes or checkout paths.
 Missing context/class/environment and pending Java resolution exceptions become
-specific preparation errors. SessionPreparation.h remains free of JNI types;
+specific preparation errors. AudioSession.h remains free of JNI types;
 its no-context factory cannot silently infer Android context.
 
 The Java listener forwards token and native change only. C++ registers its
@@ -1010,7 +1010,7 @@ errors remain separate. Pending service stop retains ownership until an explicit
 observation sees inactive; native cleanup failure permits explicit retry.
 Destruction provides best-effort cleanup, without waiting for Android's main loop.
 
-`AndroidSessionPreparation` composes the existing `AndroidAudioFocusDriver` with
+`AndroidAudioSession` composes the existing `AndroidAudioFocusDriver` with
 an optional `AndroidSessionResourceDriver`. The five-argument Android factory
 accepts the application context plus explicit listener, foreground-service and
 wake-lock classes resolved through the consumer's application loader. Its
@@ -1097,7 +1097,7 @@ callback guard/preparation and custom scheduler linkage/comparison selector.
 JUCE's existing Oboe/OpenSLES backend owns thread creation and scheduling
 requests; Android applies effective policy. No scheduling class is moved to
 coreaudio and no scheduler API or Android/iOS optimizer superclass is added.
-SessionPreparation retains focus/service/wake mechanisms and their existing
+AudioSession retains focus/service/wake mechanisms and their existing
 product-adapter ownership. Other consumers retain android_audio_runtime.
 
 The four scheduling design previews linked above now describe the C3B current
@@ -1110,7 +1110,7 @@ retained in the audit; they do not imply universal device qualification.
 ## REST engine — Group R
 
 `gigante::restcore` is the opt-in REST client and server engine (`REQ-RC`), agreed
-with the user on 2026-11-02 and implemented through R1. The target is off by default
+with the user on 2026-11-02 and implemented through R2. The target is off by default
 (`GIGANTE_BUILD_REST`), and `core`, `platform` and `log` gain no dependency on it.
 
 Projects use the C++ classes `RestServer` and `RestClient` from `include/gigante`.
@@ -1125,18 +1125,30 @@ replies 202 and reports through `status`. Engine APIs are never called from an a
 thread.
 
 Common routes live under `/core/v1/`. `health`, `heartbeat`, `status`,
-`getBuildVersion`, `getCapabilities` and `checkDeps` are always present. Service
+`getIdentity`, `getCapabilities` and `checkDeps` are always present. Service
 lifecycle is opt-in through registered callbacks, and runs on its own worker thread
-after the reply. Live streams, `copy*` and diagnostics arrive opt-in in R2, and
-`deploy*` is off at build time and separately gated in R6. Project routes stay
-entirely with each project.
+after the reply. `getIdentity` reports the identity fixed when the project built its
+binary; nothing is built at run time. Live streams, `copy*` and diagnostics are opt-in
+(R2), and `deploy*` is off at build time and separately gated in R6. Project routes
+stay entirely with each project.
 
-Each connection holds a pool thread, including idle ones. `CapacityGate`, which arrives
-in the target with R2, caps streams and transfers at the route and so keeps threads
-free for `health`. It does not protect against idle-connection floods, so the design
+Streams are declared before start. `StreamHub` owns the descriptors and subscribers,
+and each subscriber is a `StreamSession`: a bounded queue holding a capacity lease.
+`RestStream` is the producer's handle, and its `tryPublish` never blocks. The SSE lane
+numbers its events; a reconnect with `Last-Event-ID` receives a gap event, never a
+replay. `copy*` names resources by IDs from the project's `RestResourceStore`, never
+by path. `CopyService` stages an upload in the store's sink and commits only after the
+whole body has arrived and its SHA-256 matches, so a failed or abandoned transfer
+leaves nothing. `getLog` lists files under the roots the project registered and
+matches their names against a glob; it never opens a name a client sends.
+
+Each connection holds a pool thread, including idle ones. `CapacityGate` caps streams
+and transfers at the route, and `start()` refuses caps that, with `reservedThreads`,
+exceed `maxThreads`, so threads stay free for `health`. It does not protect against idle-connection floods, so the design
 is for up to 100 clients on trusted networks. See the
 [R0 report](docs/devreq/rest-engine/feasibility.md) and
-[R1 acceptance](docs/devreq/rest-engine/r1-acceptance.md).
+[R1 acceptance](docs/devreq/rest-engine/r1-acceptance.md) and
+[R2 acceptance](docs/devreq/rest-engine/r2-acceptance.md).
 
 Design diagrams:
 [layers](docs/devreq/rest-engine/restcore-layers.html),
@@ -1151,4 +1163,59 @@ Design diagrams:
 [copy](docs/devreq/rest-engine/copy-transfer.html),
 [deploy](docs/devreq/rest-engine/deploy-flow.html),
 [shutdown](docs/devreq/rest-engine/shutdown.html) and
-[client flow](docs/devreq/rest-engine/client-flow.html). Each has a sibling SVG.
+[client flow](docs/devreq/rest-engine/client-flow.html). R2 adds
+[R2 server classes](docs/devreq/rest-engine/r2-server-class.html),
+[R2 client classes](docs/devreq/rest-engine/r2-client-class.html),
+[subscription, server side](docs/devreq/rest-engine/subscription-server.html),
+[subscription, client side](docs/devreq/rest-engine/subscription-client.html),
+[client stream and transfer](docs/devreq/rest-engine/client-stream-transfer.html) and
+[diagnostics](docs/devreq/rest-engine/diagnostics.html). Each has a sibling SVG.
+
+
+## B1 — OutputRoute and AudioLink (2026-11-03)
+
+OutputRoute is a serialized non-realtime value owner, not a device manager or
+platform observer. AudioLink reuses AudioEndpoint and adds AudioTransport,
+availability and selected. The selected property reports effective output,
+while requestedEndpointId records intent separately. The old coarse AudioBus and
+declarative EndpointPolicy are not changed or inferred from the new field.
+
+updateLinks replaces the complete collection only for a newer nonzero generation.
+Invalid identities/directions/duplicates fail the new observation and invalidate
+old current selections. markUnavailable/markFailed retain historical endpoint
+identities but clear selection/current availability and preserve context. Stale
+updates and errors cannot overwrite a newer state. A valid later generation can
+recover. available means an accepted observation, not product eligibility; basis
+still distinguishes inventory, requested, effective and unknown observations.
+The producer is responsible for proving native effective routing; B1 fake updates
+do not supply real-world verification.
+
+Getters expose const data and all reads/writes must be serialized by the owner.
+There is no hidden realtime lock, callback registration, polling, thread or new
+snapshot/fact-source interface. Native B2 observers must marshal updates and
+separately guard lifetime/late callbacks. Audio callbacks must not read/mutate
+these allocating collections. Kuaru owns SinuOutputEligibility and later playback
+enforcement; the core accepts Bluetooth facts without imposing a product ban.
+
+B1 public declarations are include/gigante/OutputRoute.h; implementation is in
+src/platform/OutputRoute.cpp on gigante::platform. C++17 model/endpoint regression
+and header-isolation tests pass, with Android/iOS compile-only evidence. The
+complete current core suite passes using C++20 because existing Logger std::span
+headers block an unchanged whole-core C++17 build. Logger is outside B1 and
+unchanged. Existing REST work and DSP implementation remain untouched.
+
+## Native iOS output observation — B2a
+
+The former SessionPreparation API is now AudioSession; Android factories and
+platform/test files use the same rename. ManagedAudioSession owns one backend
+through AudioSessionImplementation. Its session mutex serializes route queries
+and notification handling, and its registration generation rejects late callbacks
+before accessing the backend. observeOutputRoute() returns an owned OutputRoute
+value with monotonically increasing per-session observation generation.
+
+IosAudioSession reads currentRoute.outputs using the existing lease/observers.
+AudioLink preserves native UID/type and normalized transport. Unknown types stay
+unknown. Empty route, exceptions, inactive/released session and media-service loss
+never manufacture speaker selection. SessionEvent carries optional route facts on
+route/media events. Android/native-stream observation and dedicated macOS/Linux
+backends remain deferred. No consumer Bluetooth ban lives in this library.

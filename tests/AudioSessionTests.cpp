@@ -1,4 +1,4 @@
-#include "FakeSessionPreparationImplementation.h"
+#include "FakeAudioSessionImplementation.h"
 #include <atomic>
 #include <condition_variable>
 #include <future>
@@ -18,12 +18,12 @@ struct Fixture
 {
     Fixture()
     {
-        auto owned = std::make_unique<FakeSessionPreparationImplementation>();
+        auto owned = std::make_unique<FakeAudioSessionImplementation>();
         backend = owned.get();
-        session = gigante::makeSessionPreparation(std::move(owned));
+        session = gigante::makeAudioSession(std::move(owned));
     }
-    FakeSessionPreparationImplementation* backend{};
-    std::unique_ptr<gigante::SessionPreparation> session;
+    FakeAudioSessionImplementation* backend{};
+    std::unique_ptr<gigante::AudioSession> session;
 };
 void lifecycle()
 {
@@ -145,6 +145,54 @@ void cleanupFailuresAndDestruction()
     late({});
     expect(events == 1 && !destroyed.session, "callback-side destruction invalidates late events");
 }
+void routeObservation()
+{
+    using namespace gigante;
+    Fixture f;
+    expect(f.session->observeOutputRoute().status() == OutputRouteStatus::unavailable
+           && f.backend->routeQueries == 0, "inactive session must not query a native route");
+    AudioLink link;
+    link.endpoint.endpointId = "native-port-uid";
+    link.endpoint.direction = EndpointDirection::output;
+    link.transport = AudioTransport::bluetoothA2dp;
+    link.nativeTransport = "BluetoothA2DPOutput";
+    link.availability = AudioLinkAvailability::available;
+    link.selected = true;
+    (void) f.backend->route.updateLinks(1, {link}, OutputRouteBasis::effective);
+    std::optional<OutputRoute> eventRoute;
+    (void) f.session->prepare({}, [&](const auto& event) { eventRoute = event.outputRoute; });
+    const auto first = f.session->observeOutputRoute();
+    expect(first.status() == OutputRouteStatus::available && first.links()[0].selected
+           && first.links()[0].nativeTransport == "BluetoothA2DPOutput",
+           "observation preserves effective selection and raw native type");
+    auto late = f.backend->signal;
+    late({SessionEventKind::routeChanged, {}, 3});
+    expect(eventRoute && eventRoute->generation() > first.generation()
+           && eventRoute->links()[0].endpoint.endpointId == "native-port-uid",
+           "route event carries serialized fresh native observation");
+    f.backend->throwOnObserve = true;
+    const auto failed = f.session->observeOutputRoute();
+    expect(failed.status() == OutputRouteStatus::failed && !failed.links()[0].selected
+           && failed.context() == "native route query failed", "failure invalidates stale selection with cause");
+    f.backend->throwOnObserve = false;
+    expect(f.session->observeOutputRoute().links()[0].selected, "fresh observation recovers route facts");
+    late({SessionEventKind::mediaServicesLost, {}, {}});
+    const auto queries = f.backend->routeQueries;
+    expect(eventRoute && eventRoute->status() == OutputRouteStatus::unavailable
+           && !eventRoute->links()[0].selected, "media loss invalidates selected route");
+    late({SessionEventKind::routeChanged, {}, 1});
+    expect(f.session->observeOutputRoute().status() == OutputRouteStatus::unavailable
+           && f.backend->routeQueries == queries, "route event cannot assert activation after media loss");
+    (void) f.session->release();
+    late({SessionEventKind::routeChanged, {}, 1});
+    expect(f.backend->routeQueries == queries, "late native callback cannot query released backend");
+    (void) f.session->prepare({}, [](const auto&) {});
+    const auto recovered = f.session->observeOutputRoute();
+    expect(recovered.status() == OutputRouteStatus::available && recovered.generation() > failed.generation(),
+           "explicit reprepare preserves observation generation ordering");
+    late({SessionEventKind::routeChanged, {}, 1});
+    expect(f.backend->routeQueries == queries + 1, "old registration is rejected after reprepare");
+}
 void externalRelease()
 {
     Fixture f;
@@ -187,12 +235,13 @@ void externalRelease()
 }
 int main()
 {
+    routeObservation();
     lifecycle();
     failuresAndEvents();
     externalRelease();
     cleanupFailuresAndDestruction();
 #if !defined(__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__)
-    auto unsupported = gigante::SessionPreparation::create();
+    auto unsupported = gigante::AudioSession::create();
     expect(unsupported->prepare({}, [](const auto&) {}).status
            == gigante::SessionStatus::unavailable, "desktop never reports successful no-op");
 #endif

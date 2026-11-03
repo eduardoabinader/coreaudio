@@ -6,13 +6,13 @@ namespace gigante
 {
 namespace
 {
-class AndroidSessionPreparation final : public SessionPreparationImplementation
+class AndroidAudioSession final : public AudioSessionImplementation
 {
 public:
-    AndroidSessionPreparation(std::unique_ptr<AndroidAudioFocusDriver> driverIn,
+    AndroidAudioSession(std::unique_ptr<AndroidAudioFocusDriver> driverIn,
                               std::unique_ptr<AndroidSessionResourceDriver> resourcesIn)
         : driver(std::move(driverIn)), resources(std::move(resourcesIn)) {}
-    SessionReport prepare(SessionRequest request, SessionPreparation::Callback sink) override
+    SessionReport prepare(SessionRequest request, AudioSession::Callback sink) override
     {
         current = {};
         current.requested = request;
@@ -58,11 +58,11 @@ private:
     std::unique_ptr<AndroidSessionResourceDriver> resources;
 };
 }
-std::unique_ptr<SessionPreparation> makeAndroidSessionPreparation(
+std::unique_ptr<AudioSession> makeAndroidAudioSession(
     std::unique_ptr<AndroidAudioFocusDriver> driver,
     std::unique_ptr<AndroidSessionResourceDriver> resources)
 {
     if (!driver) throw std::invalid_argument("Android audio focus driver is null");
-    return makeSessionPreparation(std::make_unique<AndroidSessionPreparation>(std::move(driver), std::move(resources)));
+    return makeAudioSession(std::make_unique<AndroidAudioSession>(std::move(driver), std::move(resources)));
 }
 } // namespace gigante

@@ -80,6 +80,9 @@ ClientResponse toResponse(const httplib::Result& result) {
     if (result) {
         response.status = result->status;
         response.body = result->body;
+        for (const auto& header : result->headers) {
+            response.headers.emplace(header.first, header.second);
+        }
     }
     return response;
 }
@@ -182,6 +185,38 @@ ClientResponse CppHttplibClientTransport::download(
         [chunkProgress = std::move(progress)](std::size_t current, std::size_t total) {
             return chunkProgress ? chunkProgress(current, total) : true;
         }));
+}
+
+ClientResponse CppHttplibClientTransport::streamGet(
+    const std::string& path,
+    const std::map<std::string, std::string>& headers,
+    ClientResponseStart onStart,
+    ClientChunkSink sink) {
+    int status = 0;
+    std::multimap<std::string, std::string> responseHeaders;
+    ClientResponse response = toResponse(implementation->client.Get(
+        path,
+        toHeaders(headers),
+        [&](const httplib::Response& start) {
+            // A cancel that raced the connect is caught here, as soon as the server answers.
+            if (implementation->cancelled.load()) {
+                return false;
+            }
+            status = start.status;
+            for (const auto& header : start.headers) {
+                responseHeaders.emplace(header.first, header.second);
+            }
+            return onStart ? onStart(status, responseHeaders) : true;
+        },
+        [this, chunkSink = std::move(sink)](const char* data, std::size_t size) {
+            return !implementation->cancelled.load() && chunkSink(data, size);
+        }));
+    // An abandoned or cut-off response has no result object, but its start was seen.
+    if (response.status == 0) {
+        response.status = status;
+        response.headers = std::move(responseHeaders);
+    }
+    return response;
 }
 
 int CppHttplibClientTransport::subscribeEvents(

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "gigante/OutputRoute.h"
+
 #include <array>
 #include <cstdint>
 #include <functional>
@@ -85,13 +87,15 @@ struct SessionEvent
     std::optional<bool> shouldResume;
     std::optional<std::uint64_t> routeChangeReason;
     std::optional<int> audioFocusChange{};
+    // Present on route/media events; immutable value, never an audio-thread view.
+    std::optional<OutputRoute> outputRoute{};
 };
 
-class SessionPreparation
+class AudioSession
 {
 public:
     using Callback = std::function<void(const SessionEvent&)>;
-    virtual ~SessionPreparation() = default;
+    virtual ~AudioSession() = default;
 
     // Non-realtime only. Serialize prepare/release on the consumer control thread.
     // Events run serially on their native posting thread (never an audio callback).
@@ -112,8 +116,12 @@ public:
     [[nodiscard]] virtual SessionResourceReport releaseResource(SessionResource resource);
     [[nodiscard]] virtual SessionResourceReport observeResource(SessionResource resource);
 
+    // Non-realtime native observation. Inactive/lost/released sessions and unsupported
+    // backends report unavailable. Returned values never establish device readiness.
+    [[nodiscard]] virtual OutputRoute observeOutputRoute();
+
     // iOS backend, explicit unavailable result elsewhere. Android requires the
-    // context-taking factory in AndroidSessionPreparation.h. No JUCE dependency.
-    [[nodiscard]] static std::unique_ptr<SessionPreparation> create();
+    // context-taking factory in AndroidAudioSession.h. No JUCE dependency.
+    [[nodiscard]] static std::unique_ptr<AudioSession> create();
 };
 } // namespace gigante

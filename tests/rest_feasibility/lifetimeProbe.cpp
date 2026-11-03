@@ -52,10 +52,11 @@ void checkPolicies(ProbeReport& report) {
     RestMetrics metrics;
     CapacityGate gate(4, 0, metrics);
     StreamHub hub(metrics);
-    for (const auto& entry : {std::make_pair(std::string("reliable"), DeliveryPolicy::reliable),
-                              std::make_pair(std::string("realtime"), DeliveryPolicy::realtime),
-                              std::make_pair(std::string("broadcast"), DeliveryPolicy::broadcast)}) {
-        StreamDescriptor descriptor;
+    for (const auto& entry : {std::make_pair(std::string("reliable"), RestDeliveryPolicy::reliable),
+                              std::make_pair(std::string("realtime"), RestDeliveryPolicy::realtime),
+                              std::make_pair(std::string("broadcast"), RestDeliveryPolicy::broadcast)}) {
+        RestStreamDescriptor descriptor;
+        descriptor.lane = RestStreamLane::binary;
         descriptor.id = entry.first;
         descriptor.policy = entry.second;
         descriptor.maxQueuedBytesPerSubscriber = 8;
@@ -125,9 +126,10 @@ struct StreamServer {
     int port = 0;
 
     bool start(bool useTls) {
-        StreamDescriptor descriptor;
+        RestStreamDescriptor descriptor;
+        descriptor.lane = RestStreamLane::binary;
         descriptor.id = "live";
-        descriptor.policy = DeliveryPolicy::realtime;
+        descriptor.policy = RestDeliveryPolicy::realtime;
         descriptor.contentType = "application/octet-stream";
         hub.declare(descriptor);
         router.add(HttpMethod::get, "/stream", [this](const TransportRequest&) {

@@ -28,16 +28,26 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(gigantecpphttplib)
 
 add_library(giganteRestCore STATIC
+    src/rest/CapacityGate.cpp
+    src/rest/ClientContext.cpp
     src/rest/CommonEndpoints.cpp
+    src/rest/CopyService.cpp
     src/rest/CppHttplibClientTransport.cpp
     src/rest/CppHttplibTransport.cpp
+    src/rest/DiagnosticsEndpoints.cpp
     src/rest/MiddlewareChain.cpp
     src/rest/RestClient.cpp
+    src/rest/RestJson.cpp
     src/rest/RestMetrics.cpp
     src/rest/RestServer.cpp
     src/rest/Router.cpp
     src/rest/SecurityPolicy.cpp
     src/rest/ServiceRegistry.cpp
+    src/rest/Sha256.cpp
+    src/rest/StreamHub.cpp
+    src/rest/StreamSession.cpp
+    src/rest/StreamSubscription.cpp
+    src/rest/TransferClient.cpp
 )
 add_library(gigante::restcore ALIAS giganteRestCore)
 set_target_properties(giganteRestCore PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)

@@ -33,6 +33,7 @@ public:
 
     // Common endpoints are the only routes allowed under the reserved prefix.
     RouteAddResult addCommon(HttpMethod method, const std::string& pattern, RouteHandler handler, RouteInfo info = {});
+    RouteAddResult addCommonUpload(HttpMethod method, const std::string& pattern, UploadHandler handler, RouteInfo info = {});
 
     // Used before the body is read, so limits and authentication can apply per route.
     RouteLookup lookup(HttpMethod method, const std::string& path, RouteInfo& info) const;
@@ -50,6 +51,7 @@ private:
     };
 
     RouteAddResult check(HttpMethod method, const std::string& pattern, bool allowReserved);
+    RouteAddResult addUploadRoute(HttpMethod method, const std::string& pattern, UploadHandler handler, RouteInfo info, bool allowReserved);
     TransportResponse invalidParameter(const std::string& name, const TransportRequest& request) const;
     bool findInvalidParameter(const TransportRequest& request, std::string& name) const;
 

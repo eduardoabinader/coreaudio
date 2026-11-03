@@ -28,6 +28,11 @@ public:
         std::uint64_t rangeStart,
         ClientChunkSink sink,
         ClientProgress progress) override;
+    ClientResponse streamGet(
+        const std::string& path,
+        const std::map<std::string, std::string>& headers,
+        ClientResponseStart onStart,
+        ClientChunkSink sink) override;
     int subscribeEvents(const std::string& path, const EventStreamOptions& options, ClientEventHandler handler) override;
     void cancel() override;
 
