@@ -160,3 +160,9 @@ add_library(giganteOutputRouteHeaderIsolation OBJECT
 target_link_libraries(giganteOutputRouteHeaderIsolation PRIVATE gigante::platform)
 target_compile_features(giganteOutputRouteHeaderIsolation PRIVATE cxx_std_17)
 gigante_enable_project_warnings(giganteOutputRouteHeaderIsolation)
+
+add_executable(giganteIosOutputRouteTests IosOutputRouteTests.cpp)
+target_include_directories(giganteIosOutputRouteTests PRIVATE ../src/platform)
+target_link_libraries(giganteIosOutputRouteTests PRIVATE gigante::platform)
+gigante_enable_project_warnings(giganteIosOutputRouteTests)
+add_test(NAME giganteIosOutputRouteTests COMMAND giganteIosOutputRouteTests)

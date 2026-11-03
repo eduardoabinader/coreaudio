@@ -165,6 +165,9 @@ core does not impose its Bluetooth ban on AHIO or other users.
 | REQ-O27 | Output-route contracts shall remain platform/product-neutral C++17 in gigante::platform, free of JUCE/native headers and consumer blocking policy. Native classification and physical verification remain separate, and generation/status must not fabricate effective-route truth. | Yes | Yes | Partial | C++17 header isolation/platform tests and Android/iOS compilation pass; B2a adds iOS currentRoute provider with speaker/A2DP transition evidence in consumer ledger; Android binding and full native matrix remain deferred |
 
 
+| REQ-O28 | Route basis/status and output-inventory completeness shall be independent. Known inactive links shall preserve actual observed identity with unknown availability and selected=false; missing native discovery must not fabricate a port or exhaustive inventory. Inventory metadata shall be published with the same generation and invalidated on failures. iOS may retain a previously observed built-in speaker, but shall not treat disconnected external ports as current inventory. | Yes | Yes | Partial | UI1R host collection/model/session tests; SDK limitation and physical qualification in consumer acceptance |
+
+
 ## Group P — Logger and shared build policy
 
 Product-neutral part of AHIO Group P. `giganteLog` is separate from `giganteCore`.
@@ -415,6 +418,8 @@ answered individually and use the listed defaults until the user says otherwise.
 | 11 | Handler threads | Concurrent on server threads, with an optional injected dispatcher (RC35). User decision |
 | 12 | Common endpoints | Always-on base, opt-in groups, `deploy*` off at build time, `execCmd` not built. User decision |
 | 13 | Logs, artifacts and live streams | Stay in R2, with `copyList` added. User decision |
+| 14 | Build information endpoint | `getBuildVersion` becomes `getIdentity`: it reports the identity fixed when the binary was built, and nothing is built at run time. Triggering builds stays with Python `tools/grest` (RC23). User decision, 2026-11-03 |
+| 15 | First-version transport | HTTP is the priority: the first adopted version is HTTP only, on trusted networks. HTTPS (RC12–RC16, and the TLS paths of RC41 and RC72) is deferred to a later phase. The TLS code already built stays in place, unchanged and untested beyond R2, and Mbed TLS remains the chosen mobile backend for when HTTPS returns. Until then a project can use only the development profile, because production requires HTTPS (RC12). The cpp-httplib `last_ssl_error_` race found in R2 is deferred with HTTPS. User decision, 2026-11-03 |
 
 ### R.14 — Findings from R0 that refine this group
 

@@ -1,4 +1,5 @@
 #include "AudioSessionImplementation.h"
+#include "IosOutputRoute.h"
 #import <AVFoundation/AVFoundation.h>
 
 #include <utility>
@@ -154,7 +155,7 @@ public:
                     link.selected = true;
                     links.push_back(std::move(link));
                 }
-                (void) route.updateLinks(1, std::move(links), OutputRouteBasis::effective);
+                return observeIosOutputs(std::move(links), knownSpeaker);
             }
             @catch (NSException* error)
             {
@@ -197,6 +198,7 @@ public:
         }
     }
 private:
+    std::optional<AudioLink> knownSpeaker;
     std::vector<id> observers;
     SessionReport report;
     bool ownsActivation{false};

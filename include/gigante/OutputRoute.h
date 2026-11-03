@@ -34,6 +34,8 @@ enum class OutputRouteStatus { unavailable, available, failed };
 // The producer must establish effective routing; the model never infers it.
 enum class OutputRouteBasis { unknown, inventory, requested, effective };
 enum class OutputRouteUpdate { applied, staleGeneration, invalidObservation };
+// Effective-route observation and complete output enumeration are independent.
+enum class OutputInventoryStatus { unknown, partial, complete };
 
 // Non-realtime value model. All access must be serialized by its owner. Native
 // callbacks must marshal updates to that owner; audio callbacks never read it.
@@ -42,7 +44,9 @@ class OutputRoute final
 {
 public:
     [[nodiscard]] OutputRouteUpdate updateLinks(std::uint64_t generation,
-        std::vector<AudioLink> links, OutputRouteBasis basis);
+        std::vector<AudioLink> links, OutputRouteBasis basis,
+        OutputInventoryStatus inventoryStatus = OutputInventoryStatus::unknown,
+        std::string inventoryContext = {});
     [[nodiscard]] OutputRouteUpdate markUnavailable(std::uint64_t generation,
         std::string context);
     [[nodiscard]] OutputRouteUpdate markFailed(std::uint64_t generation,
@@ -55,6 +59,8 @@ public:
     [[nodiscard]] OutputRouteBasis basis() const noexcept;
     [[nodiscard]] std::uint64_t generation() const noexcept;
     [[nodiscard]] const std::string& context() const noexcept;
+    [[nodiscard]] OutputInventoryStatus inventoryStatus() const noexcept;
+    [[nodiscard]] const std::string& inventoryContext() const noexcept;
     [[nodiscard]] const std::optional<std::string>& requestedEndpointId() const noexcept;
 
 private:
@@ -66,6 +72,8 @@ private:
     OutputRouteBasis currentBasis{OutputRouteBasis::unknown};
     std::uint64_t currentGeneration{0};
     std::string currentContext;
+    OutputInventoryStatus currentInventoryStatus{OutputInventoryStatus::unknown};
+    std::string currentInventoryContext;
     std::optional<std::string> requestedId;
 };
 } // namespace gigante

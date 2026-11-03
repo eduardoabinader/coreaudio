@@ -64,7 +64,8 @@ void observeRoute(SessionState& state, AudioSessionImplementation& backend,
     {
         const auto observed = backend.observeOutputRoute();
         if (observed.status() == OutputRouteStatus::available)
-            (void) state.route.updateLinks(generation, observed.links(), observed.basis());
+            (void) state.route.updateLinks(generation, observed.links(), observed.basis(),
+                observed.inventoryStatus(), observed.inventoryContext());
         else if (observed.status() == OutputRouteStatus::failed)
             (void) state.route.markFailed(generation, observed.context());
         else

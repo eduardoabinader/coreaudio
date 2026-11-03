@@ -20,7 +20,7 @@ library yet. It remains limited to trusted networks because of the R0 gaps.
 | 1. Cross builds | Pass: Android arm64-v8a and x86_64 (NDK 29.0.13599879, API 29), iOS device arm64 and Simulator arm64, Mbed TLS, Release. Library target only |
 | 2. Off by default | Pass: with the option off there is no `giganteRestCore` target or fetched dependency, and the 12 existing tests pass |
 | 3. Native tests | Pass: 9 of 9 `rest` tests on OpenSSL 3.5.9 and Mbed TLS 3.6.7, including the three new suites |
-| 4. Sanitizers | SANITIZER_RESULT |
+| 4. Sanitizers | Partial. ASan/UBSan: clean in 3 rounds on each backend. TSan: clean in 3 rounds on OpenSSL. On Mbed TLS, `RestSecurityTests` reported a data race in each of the 3 rounds, inside cpp-httplib (see below). A fourth full run was clean, so it is intermittent |
 | 5. `curl` interoperability | Pass: 29 checks, 15 of them new: SSE framing, heartbeat, gap after `Last-Event-ID`, unknown stream, `copyList`, whole and ranged download, create, wrong offset, upload and round trip, and 411 |
 | 6. R0 probes | Pass on Mbed TLS against the rewritten stream classes: TLS 17, lifetime 63, capacity 5 scenarios at scale 0.2 |
 | 7. `git diff --check` | Pass, plus a whitespace check of new files |
@@ -56,6 +56,20 @@ library yet. It remains limited to trusted networks because of the R0 gaps.
 |---|---|
 | Removing the moved `Sha256` class from the probe header left a fragment, so the probes no longer compiled | Fragment removed; the probes use `src/rest/Sha256` |
 | The new start-time sizing check refused the shared test fixture (8 reserved + 32 streams > 32 threads); the stream tests did not check `started` | The fixture states its caps (8 streams, 8 transfers), and the stream tests now assert that start succeeded |
+
+## Upstream race reproduced
+
+TSan on Mbed TLS reports a write/write race on `httplib::SSLServer::last_ssl_error_`
+(`httplib.h:19078`, in `process_and_close_socket`). Two connections whose TLS
+handshakes fail at the same time both write the shared member without a lock. This is
+the race R0 recorded and R1 could not reproduce. The OpenSSL branch writes the same member the same way;
+TSan caught it only on Mbed TLS, by timing, so the backend choice does not remove it.
+By user decision on 2026-11-03, Mbed TLS stays the mobile backend.
+HTTPS is deferred to a later phase (decision 15 in R.13): the first version is HTTP
+only. The race is deferred with it, and the 10-run frequency check was not done. restcore never reads the member, so
+no engine state is affected, but it is still a data race. It is not suppressed and the
+test is unchanged. Disposition: carry a patch under REQ-RC74 or report it upstream, as
+a separate decision.
 
 ## Not verified
 

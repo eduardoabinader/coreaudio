@@ -1136,6 +1136,46 @@ that with reservedThreads exceed maxThreads. Once a store is set, routes with sm
 limits refuse unsized bodies with 411. By user decision getBuildVersion became
 getIdentity: it reports the compile-time identity, and builds stay with Python
 tools/grest. 9/9 REST tests pass on OpenSSL 3.5.9 and Mbed TLS 3.6.7 on macOS, plus 29
-curl checks and the R0 probes; Android and iOS compile only. Not verified: device
+curl checks and the R0 probes; Android and iOS compile only. ASan/UBSan clean on both
+backends and TSan clean on OpenSSL; TSan on Mbed TLS reproduces the upstream
+SSLServer::last_ssl_error_ write race (restcore never reads it). The user then
+decided that HTTP is the priority: the first version is HTTP only, HTTPS and that race
+are deferred, the TLS code stays in place, and Mbed TLS remains the mobile backend
+(R.13 decision 15). Not verified: device
 runtime, Linux, a real mid-upload disconnect, the RC06 call-site audit. See
 docs/devreq/rest-engine/r2-acceptance.md.
+
+## UI1R shared AudioLink inventory — 2026-11-03
+
+User rejected the Kuaru output-choice model and approved the revised direct-link
+architecture. OutputRoute now carries OutputInventoryStatus/context separately
+from current-route status/basis. Private observeIosOutputs learns Speaker only
+from actual valid native UID/type, retains that AudioLink unselected with unknown
+availability after route change, and drops disconnected external outputs. It does
+not fabricate an unobserved speaker at cold BT startup or claim full enumeration.
+No output policy, extra domain class or session/category/input change is added.
+
+Neutral C++20 suite 13/13, C++17 platform/session/route subset 5/5, consumer
+eligibility/session/resources 3/3, and JNI resources pass. Android dev and signed
+iOS dev builds pass. iPhone cold BT startup reports partial inventory honestly;
+physical known-speaker retention/UI transitions are pending user interaction.
+Evidence: /private/tmp/ui1r-*.log and /private/tmp/ui1r-link-ui. All source and docs
+remain uncommitted. Kuaru owns UI/help/Bluetooth policy; iOS headset monitor no
+longer supplies output inventory or refresh events to the UI. Android migration
+remains a separately gated phase, and AHIO behavior is not qualified here.
+
+UI1R handoff: final cold-BT sample still has one selected A2DP link, inventory
+partial, and no fabricated speaker. PID 16172 remains unchanged. User Control
+Center selection and GUI checkmark/retention confirmation are pending. Owned
+forward 62761 is closed; cleanup/cold-start-checks JSON under /private/tmp/ui1r-link-ui.
+App remains running. Resume the same approved phase when that result arrives;
+no new go is needed for the already planned physical verification. AN13 stays
+partial and no full inactive-output enumeration or UI fix is claimed.
+
+UI1R final user feedback: both AudioLink rows/checkmarks and both landscape
+layouts pass. Speaker tapping failed to switch audio; user rejected the help
+flow, now removed. Native selection remains unimplemented and AN13 partial.
+Confirmed Bluetooth retention uses the exact native Speaker UID (inactive,
+unknown availability) and selected A2DP, same PID 16172. Earlier reconnect
+attempts with Bluetooth off were inconclusive. Both mobile builds pass after
+help removal; Android physical acceptance remains pending.

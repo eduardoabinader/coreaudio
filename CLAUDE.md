@@ -217,7 +217,8 @@ Loopback sockets in tests are the only exception to the no-network test rule.
 `modules/grest-cpp` is superseded. Engine APIs are never called from an audio callback.
 The engine never builds at run time: `getIdentity` (formerly `getBuildVersion`) only
 reports the identity fixed at compile time; triggering builds stays with Python
-`tools/grest`. Each phase needs its own roadmap and standalone `go`; project adoption
+`tools/grest`. The first version is HTTP only (R.13 decision 15): HTTPS work is
+deferred, and its existing code stays untouched until a later phase. Each phase needs its own roadmap and standalone `go`; project adoption
 is not authorized.
 
 
@@ -241,3 +242,18 @@ SessionPreparation aliases, a second observer owner or a snapshot manager. Keep
 raw native types, explicit unknown/failure facts and invalidation on media loss
 and release. Android actual stream binding is B2b; playback enforcement remains
 Kuaru-owned B3 on both mobile platforms. No macOS/Linux backend is implemented.
+
+## Shared AudioLink ownership and partial iOS inventory — UI1R
+
+The user-approved revision keeps OutputRoute/AudioLink as the only output model.
+OutputInventoryStatus/context are distinct from effective-route status/basis and
+are propagated through the managed session wrapper. The private IosOutputRoute
+collection seam learns a built-in Speaker only from a valid native observation,
+retains its actual identity unselected with unknown availability after a route
+change, and drops disconnected external outputs. Speaker is not Receiver; names
+are not evidence. No fabricated speaker UID, exhaustive inventory or current
+availability is inferred at Bluetooth cold start. Inventory remains partial.
+Native session/UI policy/category and Android routing are unchanged. Kuaru owns
+labels/help/eligibility; its iOS device presentation now consumes shared session
+facts and events rather than SinuHeadsetMonitor's legacy inventory methods.
+No extra output-choice domain class, native picker workaround or B3 ban is added.

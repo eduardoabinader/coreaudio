@@ -99,5 +99,15 @@ int main()
         "empty effective observation is representable, not inferred safe");
     expect(unavailable.markFailed(0, "wrapped") == OutputRouteUpdate::staleGeneration,
         "generation wrap cannot supersede the last observation");
+    OutputRoute covered;
+    (void) covered.updateLinks(1, {output("coverage", true)}, OutputRouteBasis::effective,
+        OutputInventoryStatus::partial, "active ports only");
+    expect(covered.inventoryStatus() == OutputInventoryStatus::partial && covered.links()[0].selected,
+        "partial inventory can still contain an authoritative selected route");
+    (void) covered.updateLinks(1, {}, OutputRouteBasis::inventory, OutputInventoryStatus::complete);
+    expect(covered.inventoryStatus() == OutputInventoryStatus::partial, "stale metadata cannot replace inventory coverage");
+    (void) covered.markFailed(2, "read failed");
+    expect(covered.inventoryStatus() == OutputInventoryStatus::unknown && !covered.links()[0].selected,
+        "failure invalidates coverage and selection together");
     return failures == 0 ? 0 : 1;
 }

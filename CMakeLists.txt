@@ -84,6 +84,7 @@ target_sources(
         src/platform/EndpointMonitor.cpp
         src/platform/EndpointPolicy.cpp
         src/platform/OutputRoute.cpp
+        src/platform/IosOutputRoute.cpp
         src/platform/HostFacts.cpp
         include/gigante/EndpointMonitor.h
         include/gigante/EndpointPolicy.h

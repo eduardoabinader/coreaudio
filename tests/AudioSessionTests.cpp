@@ -158,13 +158,16 @@ void routeObservation()
     link.nativeTransport = "BluetoothA2DPOutput";
     link.availability = AudioLinkAvailability::available;
     link.selected = true;
-    (void) f.backend->route.updateLinks(1, {link}, OutputRouteBasis::effective);
+    (void) f.backend->route.updateLinks(1, {link}, OutputRouteBasis::effective,
+        OutputInventoryStatus::partial, "current outputs only");
     std::optional<OutputRoute> eventRoute;
     (void) f.session->prepare({}, [&](const auto& event) { eventRoute = event.outputRoute; });
     const auto first = f.session->observeOutputRoute();
     expect(first.status() == OutputRouteStatus::available && first.links()[0].selected
            && first.links()[0].nativeTransport == "BluetoothA2DPOutput",
            "observation preserves effective selection and raw native type");
+    expect(first.inventoryStatus() == OutputInventoryStatus::partial
+           && first.inventoryContext() == "current outputs only", "wrapper preserves inventory coverage independently of route basis");
     auto late = f.backend->signal;
     late({SessionEventKind::routeChanged, {}, 3});
     expect(eventRoute && eventRoute->generation() > first.generation()

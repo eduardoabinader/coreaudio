@@ -6,7 +6,8 @@
 namespace gigante
 {
 OutputRouteUpdate OutputRoute::updateLinks(const std::uint64_t generationIn,
-    std::vector<AudioLink> linksIn, const OutputRouteBasis basisIn)
+    std::vector<AudioLink> linksIn, const OutputRouteBasis basisIn,
+    const OutputInventoryStatus inventoryStatusIn, std::string inventoryContextIn)
 {
     if (generationIn <= currentGeneration)
         return OutputRouteUpdate::staleGeneration;
@@ -39,6 +40,15 @@ OutputRouteUpdate OutputRoute::updateLinks(const std::uint64_t generationIn,
         for (auto& link : linksIn)
             link.selected = false;
 
+    if (inventoryStatusIn != OutputInventoryStatus::unknown
+        && inventoryStatusIn != OutputInventoryStatus::partial
+        && inventoryStatusIn != OutputInventoryStatus::complete)
+    {
+        invalidate(generationIn, OutputRouteStatus::failed, "invalid output inventory status");
+        return OutputRouteUpdate::invalidObservation;
+    }
+    currentInventoryStatus = inventoryStatusIn;
+    currentInventoryContext = std::move(inventoryContextIn);
     currentLinks = std::move(linksIn);
     currentGeneration = generationIn;
     currentBasis = basisIn;
@@ -60,6 +70,8 @@ void OutputRoute::invalidate(const std::uint64_t generationIn,
     currentStatus = statusIn;
     currentBasis = OutputRouteBasis::unknown;
     currentContext = std::move(contextIn);
+    currentInventoryStatus = OutputInventoryStatus::unknown;
+    currentInventoryContext = currentContext;
 }
 
 OutputRouteUpdate OutputRoute::markUnavailable(const std::uint64_t generationIn,
@@ -91,4 +103,6 @@ OutputRouteBasis OutputRoute::basis() const noexcept { return currentBasis; }
 std::uint64_t OutputRoute::generation() const noexcept { return currentGeneration; }
 const std::string& OutputRoute::context() const noexcept { return currentContext; }
 const std::optional<std::string>& OutputRoute::requestedEndpointId() const noexcept { return requestedId; }
+OutputInventoryStatus OutputRoute::inventoryStatus() const noexcept { return currentInventoryStatus; }
+const std::string& OutputRoute::inventoryContext() const noexcept { return currentInventoryContext; }
 } // namespace gigante
